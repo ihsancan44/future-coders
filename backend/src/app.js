@@ -1,0 +1,33 @@
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import { config } from "./config.js";
+import authRoutes from "./routes/auth.js";
+import courseRoutes from "./routes/courses.js";
+import examRoutes from "./routes/exams.js";
+import blogRoutes from "./routes/blog.js";
+import adminRoutes from "./routes/admin/index.js";
+import { errorHandler, notFoundHandler } from "./middleware/error.js";
+
+export function createApp() {
+  const app = express();
+  app.disable("x-powered-by");
+  app.set("trust proxy", 1);
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  app.use(cors({ origin: config.clientUrl.split(",").map((s) => s.trim()) }));
+  app.use(express.json({ limit: "1mb" }));
+  if (!config.isTest) app.use(morgan("dev"));
+
+  app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  app.use("/uploads", express.static(config.uploadDir, { maxAge: "7d" }));
+  app.use("/api/auth", authRoutes);
+  app.use("/api/courses", courseRoutes);
+  app.use("/api/exams", examRoutes);
+  app.use("/api/blog", blogRoutes);
+  app.use("/api/admin", adminRoutes);
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+}
