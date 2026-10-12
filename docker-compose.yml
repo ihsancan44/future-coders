@@ -1,0 +1,44 @@
+# Tüm uygulamayı tek komutla çalıştırır: docker compose up --build
+# Site: http://localhost:8080  ·  Admin: ADMIN_EMAIL / ADMIN_PASSWORD (varsayılanlar aşağıda)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: futurecoders
+      POSTGRES_PASSWORD: futurecoders
+      POSTGRES_DB: futurecoders
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U futurecoders"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://futurecoders:futurecoders@db:5432/futurecoders
+      JWT_SECRET: ${JWT_SECRET:-yerel-gelistirme-anahtari-degistirin}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@futurecoders.dev}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    volumes:
+      - uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  db-data:
+  uploads:
