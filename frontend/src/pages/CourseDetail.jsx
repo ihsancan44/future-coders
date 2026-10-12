@@ -116,16 +116,27 @@ function FinalExamBox({ course }) {
   const best = exam.attempts.reduce((m, a) => Math.max(m, a.score), -1);
   return (
     <div className="final-box">
-      <h3>Final sınavı</h3>
+      <h3>Kurs sonu testi</h3>
       <p className="muted">
         {exam.questionCount} soru{exam.durationMinutes ? `, ${exam.durationMinutes} dakika` : ""}. Geçme notu %{exam.passingScore}.
       </p>
-      {exam.passed && <Alert type="success" showIcon message={`Tebrikler, bu kursu geçtin. En yüksek puanın: %${best}`} />}
-      {!exam.passed && best >= 0 && <Alert type="warning" showIcon message={`En yüksek puanın %${best}. Tekrar deneyebilirsin.`} />}
-      <Button type="primary" block disabled={!finished} onClick={() => navigate(`/courses/${course.id}/final`)}>
-        {exam.attempts.length ? "Sınava tekrar gir" : "Final sınavına başla"}
-      </Button>
-      {!finished && <p className="muted small">Sınav, kursun tüm adımlarını tamamladığında açılır.</p>}
+      {exam.passed ? (
+        <>
+          <Alert type="success" showIcon message={`Tebrikler, bu kursu geçtin. Puanın: %${best}`} />
+          <Link to="/career" className="btn btn--primary btn--sm">Alanını seç, yol haritanı gör</Link>
+        </>
+      ) : (
+        <>
+          {best >= 0 && <Alert type="warning" showIcon message={`Son denemelerde en yüksek puanın %${best}. Kurs baştan başladı.`} />}
+          <Button type="primary" block disabled={!finished} onClick={() => navigate(`/courses/${course.id}/final`)}>
+            {exam.attempts.length ? "Teste tekrar gir" : "Kurs sonu testine başla"}
+          </Button>
+          <p className="muted small">
+            {finished ? "" : "Test, kursun tüm adımlarını tamamladığında açılır. "}
+            Testte kalırsan kurs ilerlemen sıfırlanır ve kursa baştan başlarsın.
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -170,7 +181,7 @@ export default function CourseDetail() {
     }
   };
 
-  const percent = course.progress ? Math.round((course.progress.completed / Math.max(course.progress.total, 1)) * 100) : 0;
+  const percent = course.progress?.percent ?? 0;
 
   return (
     <div className="course-page">
@@ -244,7 +255,7 @@ export default function CourseDetail() {
       <aside className="course-page__side">
         {course.progress && (
           <div className="progress-box">
-            <span>İlerlemen</span>
+            <span>İlerlemen: kursun %{percent} kadarını tamamladın</span>
             <Progress percent={percent} strokeColor="#053471" />
             <span className="muted small">{course.progress.completed} / {course.progress.total} adım tamamlandı</span>
           </div>

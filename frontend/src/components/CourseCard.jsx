@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
-import { Tag } from "antd";
-import { Clock3, Lock, MessageCircle, PlayCircle } from "lucide-react";
+import { Progress, Tag } from "antd";
+import { CheckCircle2, Clock3, Lock, MessageCircle, PlayCircle } from "lucide-react";
 import Cover from "./Cover";
 import { LEVEL_COLOR, LEVEL_LABEL, formatDuration } from "../utils/format";
 
@@ -24,6 +24,16 @@ export default function CourseCard({ course }) {
         </div>
         <h3>{course.title}</h3>
         <p>{course.summary}</p>
+        {course.finalPassed ? (
+          <span className="course-card__done"><CheckCircle2 size={15} /> Tamamlandı, testi geçtin</span>
+        ) : (
+          course.progress?.completed > 0 && (
+            <div className="course-card__progress">
+              <Progress percent={course.progress.percent} size="small" strokeColor="#053471" aria-label="Kurs ilerlemesi" />
+              <span className="muted small">%{course.progress.percent} tamamlandı</span>
+            </div>
+          )
+        )}
       </div>
       <div className="course-card__meta">
         <span><PlayCircle size={15} /> {course.lessonCount} ders</span>
@@ -46,5 +56,7 @@ CourseCard.propTypes = {
     totalMinutes: PropTypes.number,
     commentCount: PropTypes.number,
     access: PropTypes.shape({ canAccess: PropTypes.bool, message: PropTypes.string }),
+    progress: PropTypes.shape({ completed: PropTypes.number, total: PropTypes.number, percent: PropTypes.number }),
+    finalPassed: PropTypes.bool,
   }).isRequired,
 };

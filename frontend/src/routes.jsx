@@ -14,6 +14,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Placement from "./pages/Placement";
 import Profile from "./pages/Profile";
+import CareerPicker from "./pages/CareerPicker";
+import CareerRoadmap from "./pages/CareerRoadmap";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCourses from "./pages/admin/AdminCourses";
@@ -42,6 +44,8 @@ export const routes = [
       { path: "reset-password", element: <ResetPassword /> },
       { path: "placement", element: <RequireAuth><Placement /></RequireAuth> },
       { path: "profile", element: <RequireAuth><Profile /></RequireAuth> },
+      { path: "career", element: <RequireAuth><CareerPicker /></RequireAuth> },
+      { path: "career/:key", element: <RequireAuth><CareerRoadmap /></RequireAuth> },
       { path: "*", element: <NotFound /> },
     ],
   },

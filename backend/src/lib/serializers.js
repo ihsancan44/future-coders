@@ -8,6 +8,7 @@ export function publicUser(user) {
     school: user.school,
     role: user.role,
     level: user.level,
+    careerField: user.careerField,
     createdAt: user.createdAt,
   };
 }

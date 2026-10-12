@@ -30,11 +30,20 @@ export async function getAccessibleCourse(user, courseId) {
   return course;
 }
 
-/** Kursun tüm dersleri tamamlandı mı? (Ders yoksa false) */
+export function progressInfo(completed, total) {
+  return {
+    total,
+    completed,
+    percent: total > 0 ? Math.round((completed / total) * 100) : 0,
+    finished: total > 0 && completed >= total,
+  };
+}
+
+/** Kursun yüzde kaçı tamamlandı? (Ders yoksa %0 ve bitmemiş sayılır) */
 export async function courseProgress(userId, courseId) {
   const [total, completed] = await Promise.all([
     prisma.lesson.count({ where: { courseId } }),
     prisma.lessonProgress.count({ where: { userId, lesson: { courseId } } }),
   ]);
-  return { total, completed, finished: total > 0 && completed >= total };
+  return progressInfo(completed, total);
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Dropdown } from "antd";
-import { LayoutDashboard, LogOut, Menu, User, X } from "lucide-react";
+import { Compass, LayoutDashboard, LogOut, Menu, User, X } from "lucide-react";
 import logo from "../assets/logo.png";
 import { useAuth } from "../context/AuthContext";
 import { LEVEL_LABEL } from "../utils/format";
@@ -14,6 +14,7 @@ export default function Navbar() {
 
   const items = [
     { key: "profile", label: <Link to="/profile">Profilim</Link>, icon: <User size={14} /> },
+    ...(!isAdmin ? [{ key: "career", label: <Link to="/career">Yazılım alanım</Link>, icon: <Compass size={14} /> }] : []),
     ...(isAdmin ? [{ key: "admin", label: <Link to="/admin">Admin paneli</Link>, icon: <LayoutDashboard size={14} /> }] : []),
     { type: "divider" },
     {
@@ -41,6 +42,7 @@ export default function Navbar() {
           <NavLink to="/" end onClick={close}>Ana Sayfa</NavLink>
           <NavLink to="/courses" onClick={close}>Kurslar</NavLink>
           <NavLink to="/roadmap" onClick={close}>Yol Haritası</NavLink>
+          {user?.careerField && <NavLink to={`/career/${user.careerField}`} onClick={close}>Kariyer Yolum</NavLink>}
           {user && !isAdmin && !user.level && (
             <NavLink to="/placement" onClick={close} className="navbar__cta">Seviye Sınavı</NavLink>
           )}

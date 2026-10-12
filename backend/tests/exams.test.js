@@ -78,8 +78,11 @@ describe("seviye sınavı", () => {
   });
 });
 
-describe("final sınavı", () => {
-  it("tüm dersler bitmeden açılmaz, bitince açılır ve tekrar denenebilir", async () => {
+const completeAll = (course, auth) =>
+  Promise.all(course.lessons.map((l) => api().post(`/api/courses/${course.id}/lessons/${l.id}/complete`).set(auth)));
+
+describe("final testi", () => {
+  it("tüm dersler bitmeden açılmaz; kalınca kurs baştan başlar, geçince tekrar girilmez", async () => {
     const { course, exam } = await createCourse({ lessons: 2, withFinal: true });
     const { auth } = await createUser({ level: "ALPHA" });
 
@@ -87,24 +90,51 @@ describe("final sınavı", () => {
     expect(early.status).toBe(403);
     expect(early.body.code).toBe("COURSE_NOT_FINISHED");
 
-    for (const l of course.lessons) await api().post(`/api/courses/${course.id}/lessons/${l.id}/complete`).set(auth);
-
+    await completeAll(course, auth);
     const first = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
     const fail = await api().post(`/api/exams/attempts/${first.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 1) });
     expect(fail.body.attempt).toMatchObject({ score: 20, passed: false, assignedLevel: null });
+    expect(fail.body.courseReset).toBe(true);
 
+    // Kaldı: ilerleme sıfırlandı, test tekrar kilitlendi.
+    const afterFail = await api().get(`/api/courses/${course.id}`).set(auth);
+    expect(afterFail.body.course.progress).toMatchObject({ completed: 0, percent: 0, finished: false });
+    expect(afterFail.body.course.lessons.every((l) => !l.completed)).toBe(true);
+    expect((await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth)).body.code).toBe("COURSE_NOT_FINISHED");
+
+    await completeAll(course, auth);
     const second = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
     expect(second.body.attempt.id).not.toBe(first.body.attempt.id);
     const pass = await api().post(`/api/exams/attempts/${second.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 4) });
     expect(pass.body.attempt).toMatchObject({ score: 80, passed: true });
+    expect(pass.body.courseReset).toBe(false);
 
     const detail = await api().get(`/api/courses/${course.id}`).set(auth);
     expect(detail.body.course.finalExam).toMatchObject({ passed: true });
     expect(detail.body.course.finalExam.attempts).toHaveLength(2);
+    expect(detail.body.course.progress).toMatchObject({ percent: 100, finished: true });
 
-    // Final sınavı öğrencinin sınıfını değiştirmez.
+    const again = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    expect(again.status).toBe(409);
+    expect(again.body.code).toBe("FINAL_PASSED");
+
+    // Final testi öğrencinin sınıfını değiştirmez.
     const me = await prisma.user.findFirst({ where: { level: "ALPHA" } });
     expect(me.level).toBe("ALPHA");
+  });
+
+  it("kalmak sadece o kursun ilerlemesini siler", async () => {
+    const a = await createCourse({ lessons: 2, withFinal: true });
+    const b = await createCourse({ lessons: 3 });
+    const { auth } = await createUser({ level: "ALPHA" });
+    await completeAll(a.course, auth);
+    await api().post(`/api/courses/${b.course.id}/lessons/${b.course.lessons[0].id}/complete`).set(auth);
+
+    const start = await api().post(`/api/exams/courses/${a.course.id}/final/start`).set(auth);
+    await api().post(`/api/exams/attempts/${start.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(a.exam, 0) });
+
+    const other = await api().get(`/api/courses/${b.course.id}`).set(auth);
+    expect(other.body.course.progress).toMatchObject({ completed: 1, total: 3, percent: 33 });
   });
 
   it("öğrencinin sınıfına kapalı kursun finaline girilemez", async () => {

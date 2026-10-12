@@ -35,7 +35,8 @@ export default function Dashboard() {
   const { data, error, loading, reload } = useApi("/admin/stats");
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
-  const { totals, levels, schools, placementScores, registrations, courses } = data;
+  const { totals, levels, schools, placementScores, registrations, courses, careers } = data;
+  const chosen = careers.reduce((s, c) => s + c.count, 0);
   const placed = levels.ALPHA + levels.BETA;
   const maxReg = Math.max(1, ...registrations.map((r) => r.count));
 
@@ -63,6 +64,9 @@ export default function Dashboard() {
         </Card>
         <Card title="Seviye sınavı puanları">
           <Bars rows={placementScores} labelKey="range" valueKey="count" color="var(--accent)" />
+        </Card>
+        <Card title="Seçilen yazılım alanları">
+          {chosen ? <Bars rows={careers} labelKey="title" valueKey="count" /> : <p className="muted">Henüz alan seçen öğrenci yok.</p>}
         </Card>
         <Card title="Okullara göre öğrenciler">
           {schools.length ? <Bars rows={schools} labelKey="school" valueKey="count" color="var(--accent)" /> : <p className="muted">Henüz öğrenci yok.</p>}

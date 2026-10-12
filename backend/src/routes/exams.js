@@ -71,9 +71,9 @@ router.post(
   "/attempts/:id/submit",
   validate(submitSchema),
   asyncHandler(async (req, res) => {
-    const attempt = await submitAttempt(req.user, idParam(req.params.id), req.body.answers);
+    const { attempt, courseReset } = await submitAttempt(req.user, idParam(req.params.id), req.body.answers);
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    res.json({ attempt: attemptSummary(attempt), user: publicUser(user) });
+    res.json({ attempt: attemptSummary(attempt), courseReset, user: publicUser(user) });
   }),
 );
 

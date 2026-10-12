@@ -6,7 +6,7 @@ import { idParam } from "../lib/params.js";
 import { authorName } from "../lib/serializers.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { assertCourseAccess, courseProgress, getAccessibleCourse } from "../services/access.js";
+import { assertCourseAccess, courseProgress, getAccessibleCourse, progressInfo } from "../services/access.js";
 
 const router = Router();
 
@@ -35,6 +35,8 @@ function courseCard(course, user) {
     studentCount: course._studentCount ?? 0,
     createdAt: course.createdAt,
     access: accessFor(user, course),
+    // Giriş yapmış öğrenci için: kursun yüzde kaçını bitirdi, final testini geçti mi.
+    ...(course._progress ? { progress: course._progress, finalPassed: course._finalPassed } : {}),
   };
 }
 
@@ -83,6 +85,26 @@ router.get(
       perCourse.set(s.lesson.courseId, set);
     }
     for (const c of courses) c._studentCount = perCourse.get(c.id)?.size ?? 0;
+
+    if (req.user && req.user.role !== "ADMIN") {
+      const [mineDone, passed] = await Promise.all([
+        prisma.lessonProgress.findMany({
+          where: { userId: req.user.id, lesson: { courseId: { in: courses.map((c) => c.id) } } },
+          select: { lesson: { select: { courseId: true } } },
+        }),
+        prisma.examAttempt.findMany({
+          where: { userId: req.user.id, passed: true, exam: { type: "FINAL" } },
+          select: { exam: { select: { courseId: true } } },
+        }),
+      ]);
+      const done = new Map();
+      for (const r of mineDone) done.set(r.lesson.courseId, (done.get(r.lesson.courseId) || 0) + 1);
+      const passedIds = new Set(passed.map((a) => a.exam.courseId));
+      for (const c of courses) {
+        c._progress = progressInfo(done.get(c.id) || 0, c.lessons.length);
+        c._finalPassed = passedIds.has(c.id);
+      }
+    }
 
     if (sort === "popular") {
       courses.sort(

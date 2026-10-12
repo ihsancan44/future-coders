@@ -38,6 +38,16 @@ npm install
 npm run dev                   # http://localhost:5173 (/api istekleri backend'e yönlenir)
 ```
 
+### Güncelleme
+
+Yeni sürümü çektikten sonra backend klasöründe veritabanını güncelleyin. Seed komutu mevcut verilere dokunmaz; sadece eski sürümün basit final sorularını yeni kurs sonu testleriyle değiştirir.
+
+```bash
+git pull
+cd backend && npm install && npm run db:deploy && npm run db:seed
+cd ../frontend && npm install
+```
+
 ### Testler
 
 ```bash
@@ -57,13 +67,16 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | Seviye sınavı sonucu | Puan ≥ eşik → Beta, altı → Alpha | Admin › Sınavlar › "Beta eşiği" (varsayılan %60) |
 | Seviye sınavı hakkı | Bir kez; admin öğrencinin sınavını sıfırlayabilir | Admin › Öğrenciler › "Sınavı sıfırla" |
 | Kurs erişimi | Öğrenci kendi sınıfının ve "Herkese açık" kursları açar | Kurs düzenleme › "Hangi sınıfa açık?" |
-| Final sınavı | Kursun tüm adımları bitince açılır, tekrar denenebilir | Sınav düzenleme › "Geçme notu" |
+| Kurs ilerlemesi | Tamamlanan adım / toplam adım, yüzde olarak kurs kartında, kurs sayfasında ve profilde | `backend/src/services/access.js` |
+| Kurs sonu testi | Orta-zor seviye; kursun tüm adımları bitince açılır. Geçen öğrenci aynı teste tekrar girmez | Sınav düzenleme › "Geçme notu" (varsayılan %60) |
+| Testte kalmak | O kurstaki tüm ilerleme silinir, öğrenci kursa baştan başlar | `backend/src/services/exams.js` |
+| Alan seçimi | Bir kursun testini geçen öğrenci yazılım alanını seçer (frontend, backend, mobil, yapay zeka, veri bilimi, siber güvenlik, IoT, oyun) ve o alanın görsel yol haritasını görür; alanı sonra değiştirebilir | Alanlar ve aşamalar: `backend/src/data/careers.js` |
 | Puanlama | Doğru / toplam soru; boş bırakılan yanlış sayılır | `backend/src/services/exams.js` |
 | Yorumlar | Kursa erişimi olan öğrenci yazar, anında yayınlanır; sahibi veya admin siler | `backend/src/routes/courses.js` |
 
 ## Ekranlar
 
-**Öğrenci:** Ana sayfa, kurs listesi (arama, kategori, sınıf filtresi), kurs sayfası (video, adım listesi, ilerleme, açıklama, yorumlar), seviye sınavı, final sınavı, yol haritası blogu ve yazı detayı, kayıt (isim, soyisim, e-posta, doğum tarihi, okul), giriş, şifremi unuttum / şifre sıfırlama, profil (sınıf bilgisi, sınav geçmişi, bilgi ve şifre değiştirme).
+**Öğrenci:** Ana sayfa, kurs listesi (arama, kategori, sınıf filtresi), kurs sayfası (video, adım listesi, ilerleme, açıklama, yorumlar), seviye sınavı, kurs sonu testi, alan seçimi ve görsel kariyer yol haritası, yol haritası blogu ve yazı detayı, kayıt (isim, soyisim, e-posta, doğum tarihi, okul), giriş, şifremi unuttum / şifre sıfırlama, profil (sınıf bilgisi, sınav geçmişi, bilgi ve şifre değiştirme).
 
 **Admin (`/admin`):** İstatistikler (kurs, blog, öğrenci sayıları, Alpha/Beta dağılımı, sınav puanları, okullar, son 30 gün kayıtlar, kurs bazında öğrenci ve final sonuçları), kurs ekle / düzenle / sil / yayınla-gizle ve ders yönetimi (video, sıralama), blog ekle / düzenle / sil / yayınla-gizle (görsel yükleme), seviye ve final sınavı yönetimi (soru ekle / düzenle / sil, doğru cevap, yayınla), öğrenci listesi (sınıf ve rol değiştirme), yorum moderasyonu.
 
@@ -81,6 +94,8 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | POST | `/api/exams/courses/:id/final/start` | Final sınavını başlat |
 | POST | `/api/exams/attempts/:id/submit` | Cevapları gönder, sonucu al |
 | GET | `/api/blog` · `/api/blog/:id` | Yayındaki blog yazıları |
+| GET/PUT | `/api/career` | Alan listesi ve seçim hakkı / alan seçimi (final testi geçilmiş olmalı) |
+| GET | `/api/career/:key` | Bir alanın yol haritası |
 | * | `/api/admin/...` | Kurs, ders, blog, sınav, soru, kullanıcı, yorum, istatistik ve görsel yükleme (sadece admin) |
 
 ## Ortam değişkenleri
