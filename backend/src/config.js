@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
 const isTest = process.env.NODE_ENV === "test";
@@ -18,7 +19,7 @@ export const config = {
   jwtSecret: required("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
-  uploadDir: process.env.UPLOAD_DIR || new URL("../uploads", import.meta.url).pathname,
+  uploadDir: process.env.UPLOAD_DIR || fileURLToPath(new URL("../uploads", import.meta.url)),
   smtp: {
     host: process.env.SMTP_HOST || "",
     port: Number(process.env.SMTP_PORT) || 587,
