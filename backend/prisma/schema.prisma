@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+/// Öğrencinin seviye sınavı sonucunda atandığı sınıf.
+enum Level {
+  ALPHA
+  BETA
+}
+
+/// Kursun hangi sınıfa açık olduğu.
+enum CourseLevel {
+  ALPHA
+  BETA
+  ALL
+}
+
+enum ExamType {
+  PLACEMENT
+  FINAL
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  firstName         String
+  lastName          String
+  email             String    @unique
+  passwordHash      String
+  birthDate         DateTime?
+  school            String?
+  role              Role      @default(STUDENT)
+  level             Level?
+  resetTokenHash    String?
+  resetTokenExpires DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  comments  Comment[]
+  progress  LessonProgress[]
+  attempts  ExamAttempt[]
+  blogPosts BlogPost[]
+}
+
+model Course {
+  id          Int         @id @default(autoincrement())
+  title       String
+  summary     String
+  description String
+  category    String
+  coverImage  String?
+  level       CourseLevel @default(ALL)
+  published   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  lessons   Lesson[]
+  comments  Comment[]
+  finalExam Exam?
+}
+
+model Lesson {
+  id              Int      @id @default(autoincrement())
+  courseId        Int
+  order           Int
+  title           String
+  content         String
+  videoUrl        String?
+  durationMinutes Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course   Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+
+  @@index([courseId, order])
+}
+
+model LessonProgress {
+  userId      Int
+  lessonId    Int
+  completedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lessonId])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  courseId  Int
+  userId    Int
+  content   String
+  createdAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, createdAt])
+}
+
+model Exam {
+  id              Int      @id @default(autoincrement())
+  type            ExamType
+  title           String
+  description     String   @default("")
+  /// Sadece FINAL sınavlarında dolu; her kursun en fazla bir final sınavı olur.
+  courseId        Int?     @unique
+  durationMinutes Int?
+  /// Yüzde olarak geçme / Beta sınıfı eşiği.
+  passingScore    Int      @default(60)
+  published       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course    Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions Question[]
+  attempts  ExamAttempt[]
+}
+
+model Question {
+  id     Int    @id @default(autoincrement())
+  examId Int
+  order  Int
+  text   String
+
+  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  options Option[]
+  answers AttemptAnswer[]
+}
+
+model Option {
+  id         Int     @id @default(autoincrement())
+  questionId Int
+  text       String
+  isCorrect  Boolean @default(false)
+
+  question Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  AttemptAnswer[]
+}
+
+model ExamAttempt {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  examId        Int
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  score         Int?
+  correctCount  Int?
+  totalCount    Int?
+  passed        Boolean?
+  assignedLevel Level?
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers AttemptAnswer[]
+
+  @@index([userId, examId])
+}
+
+model AttemptAnswer {
+  attemptId  Int
+  questionId Int
+  optionId   Int?
+
+  attempt  ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option   Option?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@id([attemptId, questionId])
+}
+
+model BlogPost {
+  id         Int      @id @default(autoincrement())
+  title      String
+  summary    String
+  content    String
+  coverImage String?
+  tag        String   @default("Genel")
+  authorId   Int?
+  published  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
