@@ -6,6 +6,7 @@ import { idParam } from "../../lib/params.js";
 import { validate } from "../../middleware/validate.js";
 import { blogCard } from "../blog.js";
 import { removeUpload } from "../../lib/uploads.js";
+import { imageUrl } from "../../lib/validators.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const postSchema = z.object({
   title: z.string().trim().min(3, "Başlık en az 3 karakter olmalı.").max(150),
   summary: z.string().trim().min(3, "Özet girin.").max(400),
   content: z.string().trim().min(3, "Yazı içeriği girin.").max(50000),
-  coverImage: z.string().trim().max(500).nullable().optional(),
+  coverImage: imageUrl,
   tag: z.string().trim().min(2).max(40).default("Genel"),
   published: z.boolean().optional(),
 });

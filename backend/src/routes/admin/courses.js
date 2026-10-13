@@ -5,6 +5,7 @@ import { asyncHandler, badRequest, notFound } from "../../lib/errors.js";
 import { idParam } from "../../lib/params.js";
 import { LOCAL_UPLOAD, removeUpload, removeUploads } from "../../lib/uploads.js";
 import { validate } from "../../middleware/validate.js";
+import { imageUrl, webUrl } from "../../lib/validators.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const courseSchema = z.object({
   summary: z.string().trim().min(3, "Kısa açıklama girin.").max(300),
   description: z.string().trim().min(3, "Açıklama girin.").max(20000),
   category: z.string().trim().min(2, "Kategori girin.").max(50),
-  coverImage: z.string().trim().max(500).nullable().optional(),
+  coverImage: imageUrl,
   level: z.enum(["ALPHA", "BETA", "ALL"]),
   published: z.boolean().optional(),
 });
@@ -23,7 +24,7 @@ const lessonSchema = z.object({
   content: z.string().trim().max(20000).default(""),
   /** YouTube/Vimeo bağlantısı ya da sunucuya yüklenmiş video (/uploads/...). */
   videoUrl: z
-    .union([z.string().trim().url().max(500), z.string().trim().regex(LOCAL_UPLOAD), z.literal("").transform(() => null)], {
+    .union([webUrl, z.string().trim().regex(LOCAL_UPLOAD), z.literal("").transform(() => null)], {
       errorMap: () => ({ message: "Geçerli bir video adresi girin veya video yükleyin." }),
     })
     .nullable()
@@ -61,10 +62,17 @@ router.get(
   }),
 );
 
+/** Dersi olmayan kurs yayına alınamaz (PATCH /publish ve oluşturma/düzenleme istekleri aynı kurala uyar). */
+async function assertPublishable(courseId) {
+  const lessons = courseId ? await prisma.lesson.count({ where: { courseId } }) : 0;
+  if (lessons === 0) throw badRequest("En az bir ders eklemeden kurs yayınlanamaz.");
+}
+
 router.post(
   "/",
   validate(courseSchema),
   asyncHandler(async (req, res) => {
+    if (req.body.published) await assertPublishable(null);
     const course = await prisma.course.create({ data: req.body });
     res.status(201).json({ course });
   }),
@@ -77,6 +85,7 @@ router.put(
     const id = idParam(req.params.id);
     const before = await prisma.course.findUnique({ where: { id }, select: { coverImage: true } });
     if (!before) throw notFound("Kurs bulunamadı.");
+    if (req.body.published) await assertPublishable(id);
     const course = await prisma.course.update({ where: { id }, data: req.body });
     if (before.coverImage !== course.coverImage) await removeUpload(before.coverImage);
     res.json({ course });
@@ -88,10 +97,7 @@ router.patch(
   validate(z.object({ published: z.boolean() })),
   asyncHandler(async (req, res) => {
     const id = idParam(req.params.id);
-    if (req.body.published) {
-      const lessons = await prisma.lesson.count({ where: { courseId: id } });
-      if (lessons === 0) throw badRequest("En az bir ders eklemeden kurs yayınlanamaz.");
-    }
+    if (req.body.published) await assertPublishable(id);
     const course = await prisma.course.update({ where: { id }, data: { published: req.body.published } });
     res.json({ course });
   }),
@@ -140,8 +146,11 @@ router.delete(
   "/:id/lessons/:lessonId",
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
-    const lesson = await prisma.lesson.findFirst({ where: { id: idParam(req.params.lessonId), courseId } });
+    const lesson = await prisma.lesson.findFirst({ where: { id: idParam(req.params.lessonId), courseId }, include: { course: true } });
     if (!lesson) throw notFound("Ders bulunamadı.");
+    if (lesson.course.published && (await prisma.lesson.count({ where: { courseId } })) === 1) {
+      throw badRequest("Yayındaki kursun son dersi silinemez. Önce yeni bir ders ekleyin ya da kursu yayından kaldırın.");
+    }
     await prisma.lesson.delete({ where: { id: lesson.id } });
     await removeUpload(lesson.videoUrl);
     res.status(204).end();

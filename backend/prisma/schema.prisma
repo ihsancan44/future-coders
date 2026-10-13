@@ -45,6 +45,8 @@ model User {
   careerChosenAt    DateTime?
   resetTokenHash    String?
   resetTokenExpires DateTime?
+  /// Şifre değişince artar; JWT içindeki "ver" bununla eşleşmezse oturum geçersizdir.
+  tokenVersion      Int       @default(0)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -168,6 +170,7 @@ model ExamAttempt {
   exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
   answers AttemptAnswer[]
 
+  // Ayrıca migration'da: bir öğrencinin aynı sınavda tek açık (finishedAt IS NULL) denemesi olabilir (kısmi benzersiz indeks).
   @@index([userId, examId])
 }
 

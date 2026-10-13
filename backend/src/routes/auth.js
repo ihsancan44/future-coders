@@ -10,6 +10,7 @@ import { sendMail } from "../lib/mailer.js";
 import { publicUser } from "../lib/serializers.js";
 import { requireAuth, signToken } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
+import { birthDateField, emailField } from "../lib/validators.js";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ const limiter = rateLimit({
 });
 
 const password = z.string().min(8, "Şifre en az 8 karakter olmalı.").max(100);
-const email = z.string().trim().toLowerCase().email("Geçerli bir e-posta adresi girin.");
+const email = emailField;
 
 const registerSchema = z
   .object({
@@ -31,9 +32,7 @@ const registerSchema = z
     email,
     password,
     confirmPassword: z.string(),
-    birthDate: z.coerce
-      .date({ errorMap: () => ({ message: "Geçerli bir doğum tarihi girin." }) })
-      .refine((d) => d < new Date() && d.getFullYear() > 1900, "Geçerli bir doğum tarihi girin."),
+    birthDate: birthDateField,
     school: z.string().trim().min(2, "Okul adını girin.").max(120),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -80,7 +79,7 @@ const profileSchema = z.object({
   firstName: z.string().trim().min(2).max(50).optional(),
   lastName: z.string().trim().min(2).max(50).optional(),
   school: z.string().trim().min(2).max(120).optional(),
-  birthDate: z.coerce.date().optional(),
+  birthDate: birthDateField.optional(),
 });
 
 router.patch(
@@ -100,11 +99,12 @@ router.post(
   asyncHandler(async (req, res) => {
     const ok = await bcrypt.compare(req.body.currentPassword, req.user.passwordHash);
     if (!ok) throw badRequest("Mevcut şifreniz hatalı.", { currentPassword: "Mevcut şifreniz hatalı." });
-    await prisma.user.update({
+    // Diğer cihazlardaki oturumlar kapanır; bu cihaz yeni anahtarla açık kalır.
+    const user = await prisma.user.update({
       where: { id: req.user.id },
-      data: { passwordHash: await bcrypt.hash(req.body.newPassword, 10) },
+      data: { passwordHash: await bcrypt.hash(req.body.newPassword, 10), tokenVersion: { increment: 1 } },
     });
-    res.json({ ok: true });
+    res.json({ ok: true, token: signToken(user) });
   }),
 );
 
@@ -153,7 +153,13 @@ router.post(
     if (!user) throw badRequest("Bağlantı geçersiz veya süresi dolmuş. Lütfen yeniden şifre sıfırlama isteyin.");
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: await bcrypt.hash(req.body.password, 10), resetTokenHash: null, resetTokenExpires: null },
+      data: {
+        passwordHash: await bcrypt.hash(req.body.password, 10),
+        resetTokenHash: null,
+        resetTokenExpires: null,
+        // Şifre başkasının elindeyse açık oturumları da kapanır.
+        tokenVersion: { increment: 1 },
+      },
     });
     res.json({ message: "Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz." });
   }),

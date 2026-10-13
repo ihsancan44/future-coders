@@ -17,6 +17,11 @@ describe("embedUrl", () => {
     expect(embedUrl("")).toBeNull();
     expect(embedUrl("bozuk adres")).toBeNull();
   });
+
+  it("javascript: ve data: adreslerini gömmez", () => {
+    expect(embedUrl("javascript:alert(document.domain)")).toBeNull();
+    expect(embedUrl("data:text/html,<script>alert(1)</script>")).toBeNull();
+  });
 });
 
 describe("formatDuration", () => {

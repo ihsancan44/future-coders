@@ -6,6 +6,7 @@ import { idParam } from "../../lib/params.js";
 import { authorName, publicUser } from "../../lib/serializers.js";
 import { validate } from "../../middleware/validate.js";
 import { findCareer } from "../../data/careers.js";
+import { likeText } from "../../lib/validators.js";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.get(
     if (role) where.role = role;
     if (level) where.level = level === "NONE" ? null : level;
     if (search) {
-      where.OR = ["firstName", "lastName", "email", "school"].map((f) => ({ [f]: { contains: search, mode: "insensitive" } }));
+      where.OR = ["firstName", "lastName", "email", "school"].map((f) => ({ [f]: { contains: likeText(search), mode: "insensitive" } }));
     }
     const users = await prisma.user.findMany({ where, orderBy: { createdAt: "desc" } });
     res.json({ users: users.map(publicUser) });

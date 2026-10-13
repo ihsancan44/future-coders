@@ -31,6 +31,8 @@ export function embedUrl(url) {
   if (!url) return null;
   try {
     const u = new URL(url);
+    // Sadece http(s) gömülür: javascript: veya data: adresi iframe içinde sitenin kendi yetkisiyle kod çalıştırabilir.
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
     let id = null;
     if (u.hostname.includes("youtu.be")) id = u.pathname.slice(1);
     else if (u.hostname.includes("youtube.com")) {

@@ -11,7 +11,7 @@ const examSchema = z.object({
   type: z.enum(["PLACEMENT", "FINAL"]),
   title: z.string().trim().min(3, "Sınav başlığı girin.").max(150),
   description: z.string().trim().max(5000).default(""),
-  courseId: z.number().int().positive().nullable().optional(),
+  courseId: z.number().int().positive().max(2_147_483_647).nullable().optional(),
   durationMinutes: z.number().int().min(1).max(600).nullable().optional(),
   passingScore: z.number().int().min(0).max(100).default(60),
   published: z.boolean().optional(),
@@ -80,6 +80,19 @@ router.post(
   }),
 );
 
+/**
+ * Yayın kuralları: sorusuz sınav yayına alınamaz, aynı anda tek seviye sınavı yayında olur.
+ * PATCH /publish ve PUT (published alanıyla) aynı işlemleri kullanır.
+ */
+async function publishOps(exam, published) {
+  if (!published) return [];
+  const questions = await prisma.question.count({ where: { examId: exam.id } });
+  if (questions === 0) throw badRequest("Soru eklemeden sınav yayınlanamaz.");
+  return exam.type === "PLACEMENT"
+    ? [prisma.exam.updateMany({ where: { type: "PLACEMENT", NOT: { id: exam.id } }, data: { published: false } })]
+    : [];
+}
+
 router.put(
   "/:id",
   validate(examSchema.partial().omit({ type: true })),
@@ -90,8 +103,9 @@ router.put(
     const data = { ...req.body };
     if (existing.type === "FINAL" && data.courseId !== undefined) await checkExamTarget({ type: "FINAL", courseId: data.courseId }, id);
     if (existing.type === "PLACEMENT") delete data.courseId;
-    const exam = await prisma.exam.update({ where: { id }, data });
-    res.json({ exam });
+    const ops = await publishOps(existing, data.published);
+    const results = await prisma.$transaction([...ops, prisma.exam.update({ where: { id }, data })]);
+    res.json({ exam: results.at(-1) });
   }),
 );
 
@@ -100,16 +114,10 @@ router.patch(
   validate(z.object({ published: z.boolean() })),
   asyncHandler(async (req, res) => {
     const id = idParam(req.params.id);
-    const exam = await prisma.exam.findUnique({ where: { id }, include: { _count: { select: { questions: true } } } });
+    const exam = await prisma.exam.findUnique({ where: { id } });
     if (!exam) throw notFound("Sınav bulunamadı.");
-    if (req.body.published && exam._count.questions === 0) throw badRequest("Soru eklemeden sınav yayınlanamaz.");
-    const ops = [];
-    // Aynı anda tek bir seviye sınavı yayında olabilir.
-    if (req.body.published && exam.type === "PLACEMENT") {
-      ops.push(prisma.exam.updateMany({ where: { type: "PLACEMENT", NOT: { id } }, data: { published: false } }));
-    }
-    ops.push(prisma.exam.update({ where: { id }, data: { published: req.body.published } }));
-    const results = await prisma.$transaction(ops);
+    const ops = await publishOps(exam, req.body.published);
+    const results = await prisma.$transaction([...ops, prisma.exam.update({ where: { id }, data: { published: req.body.published } })]);
     res.json({ exam: results.at(-1) });
   }),
 );
@@ -165,9 +173,12 @@ router.put(
 router.delete(
   "/:id/questions/:questionId",
   asyncHandler(async (req, res) => {
-    const { count } = await prisma.question.deleteMany({
-      where: { id: idParam(req.params.questionId), examId: idParam(req.params.id) },
-    });
+    const examId = idParam(req.params.id);
+    const exam = await prisma.exam.findUnique({ where: { id: examId }, include: { _count: { select: { questions: true } } } });
+    if (exam?.published && exam._count.questions === 1) {
+      throw badRequest("Yayındaki sınavın son sorusu silinemez. Önce yeni bir soru ekleyin ya da sınavı yayından kaldırın.");
+    }
+    const { count } = await prisma.question.deleteMany({ where: { id: idParam(req.params.questionId), examId } });
     if (!count) throw notFound("Soru bulunamadı.");
     res.status(204).end();
   }),
