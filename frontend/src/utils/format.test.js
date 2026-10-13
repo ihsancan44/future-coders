@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { embedUrl, formatDuration, paragraphs } from "./format";
+import { embedUrl, formatDuration, isVideoFile, paragraphs } from "./format";
 
 describe("embedUrl", () => {
   it("YouTube bağlantılarını gömülebilir adrese çevirir", () => {
@@ -30,5 +30,14 @@ describe("formatDuration", () => {
 describe("paragraphs", () => {
   it("boş satırlardan böler", () => {
     expect(paragraphs("a\n\nb\n\n\n c ")).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("isVideoFile", () => {
+  it("yüklenen ve doğrudan video dosyalarını tanır", () => {
+    expect(isVideoFile("/uploads/123-abc.mp4")).toBe(true);
+    expect(isVideoFile("https://cdn.site.com/ders.webm?x=1")).toBe(true);
+    expect(isVideoFile("https://youtu.be/abc")).toBe(false);
+    expect(isVideoFile(null)).toBe(false);
   });
 });

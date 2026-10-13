@@ -6,6 +6,7 @@ import exams from "./exams.js";
 import users from "./users.js";
 import stats from "./stats.js";
 import uploads from "./uploads.js";
+import videos from "./videos.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -15,5 +16,6 @@ router.use("/exams", exams);
 router.use(users);
 router.use(stats);
 router.use(uploads);
+router.use(videos);
 
 export default router;

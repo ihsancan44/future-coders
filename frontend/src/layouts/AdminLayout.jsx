@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Layout, Menu } from "antd";
-import { BarChart3, BookOpen, ClipboardList, FileText, Home, LogOut, MessageSquare, Users } from "lucide-react";
+import { BarChart3, BookOpen, ClipboardList, FileText, Home, LogOut, MessageSquare, Users, Video } from "lucide-react";
 import logo from "../assets/logo.png";
 import { useAuth } from "../context/AuthContext";
 
 const items = [
   { key: "/admin", icon: <BarChart3 size={16} />, label: "İstatistikler" },
   { key: "/admin/courses", icon: <BookOpen size={16} />, label: "Kurslar" },
+  { key: "/admin/videos", icon: <Video size={16} />, label: "Videolar" },
   { key: "/admin/blog", icon: <FileText size={16} />, label: "Yol haritası blog" },
   { key: "/admin/exams", icon: <ClipboardList size={16} />, label: "Sınavlar" },
-  { key: "/admin/users", icon: <Users size={16} />, label: "Öğrenciler" },
+  { key: "/admin/users", icon: <Users size={16} />, label: "Üyeler" },
   { key: "/admin/comments", icon: <MessageSquare size={16} />, label: "Yorumlar" },
   { type: "divider" },
   { key: "/", icon: <Home size={16} />, label: "Siteye dön" },
