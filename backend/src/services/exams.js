@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { courseProgress, getAccessibleCourse } from "./access.js";
@@ -83,11 +84,16 @@ export async function startAttempt(user, exam) {
       where: { userId: user.id, examId: exam.id, finishedAt: null, startedAt: { lt: cutoff } },
     });
   }
-  const open = await prisma.examAttempt.findFirst({
-    where: { userId: user.id, examId: exam.id, finishedAt: null },
-  });
+  const findOpen = () => prisma.examAttempt.findFirst({ where: { userId: user.id, examId: exam.id, finishedAt: null } });
+  const open = await findOpen();
   if (open) return open;
-  return prisma.examAttempt.create({ data: { userId: user.id, examId: exam.id } });
+  try {
+    return await prisma.examAttempt.create({ data: { userId: user.id, examId: exam.id } });
+  } catch (err) {
+    // Sınav iki sekmede aynı anda açıldıysa veritabanı ikinci açık denemeyi reddeder; ikisi de aynı denemeyi kullanır.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return findOpen();
+    throw err;
+  }
 }
 
 /**
@@ -107,16 +113,29 @@ export async function submitAttempt(user, attemptId, answers) {
   // Sınav sırasında kursun sınıfı ya da öğrencinin sınıfı değiştiyse final sonucu kaydedilmez.
   if (attempt.exam.type === "FINAL") await getAccessibleCourse(user, attempt.exam.courseId);
 
+  // Öğrenci sınavdayken admin bir soruyu silebilir ya da şıklarını değiştirebilir (şıklar yeniden oluşturulur).
+  // Artık var olmayan soru ve şıklara verilen cevaplar boş sayılır; eskiden öğrenci sınavı hiç gönderemiyordu.
+  // Hâlâ var olan ama başka bir soruya/sınava ait kimlikler ise hatalı istektir ve reddedilir.
   const questions = attempt.exam.questions;
   const byQuestion = new Map(questions.map((q) => [q.id, q]));
   const chosen = new Map();
+  const strayQuestions = [];
+  const strayOptions = [];
   for (const { questionId, optionId } of answers) {
     const q = byQuestion.get(questionId);
-    if (!q) throw badRequest("Cevaplardan biri bu sınava ait değil.");
-    if (optionId != null && !q.options.some((o) => o.id === optionId)) {
-      throw badRequest("Geçersiz bir şık seçildi.");
+    if (!q) {
+      strayQuestions.push(questionId);
+      continue;
     }
-    chosen.set(questionId, optionId ?? null);
+    const valid = optionId != null && q.options.some((o) => o.id === optionId);
+    if (optionId != null && !valid) strayOptions.push(optionId);
+    chosen.set(questionId, valid ? optionId : null);
+  }
+  if (strayQuestions.length && (await prisma.question.count({ where: { id: { in: strayQuestions } } }))) {
+    throw badRequest("Cevaplardan biri bu sınava ait değil.");
+  }
+  if (strayOptions.length && (await prisma.option.count({ where: { id: { in: strayOptions } } }))) {
+    throw badRequest("Geçersiz bir şık seçildi.");
   }
 
   let correct = 0;
@@ -130,27 +149,21 @@ export async function submitAttempt(user, attemptId, answers) {
   const assignedLevel = attempt.exam.type === "PLACEMENT" ? (passed ? "BETA" : "ALPHA") : null;
   const courseReset = attempt.exam.type === "FINAL" && !passed;
 
-  const [finished] = await prisma.$transaction([
-    prisma.examAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        finishedAt: new Date(),
-        score,
-        correctCount: correct,
-        totalCount: total,
-        passed,
-        assignedLevel,
-        answers: {
-          create: questions.map((q) => ({ questionId: q.id, optionId: chosen.get(q.id) ?? null })),
-        },
-      },
-    }),
-    ...(assignedLevel
-      ? [prisma.user.update({ where: { id: user.id }, data: { level: assignedLevel } })]
-      : []),
-    ...(courseReset
-      ? [prisma.lessonProgress.deleteMany({ where: { userId: user.id, lesson: { courseId: attempt.exam.courseId } } })]
-      : []),
-  ]);
+  const finished = await prisma.$transaction(async (tx) => {
+    // Çift tıklama / iki sekme: denemeyi yalnızca hâlâ açıksa kapat, ikinci gönderim puanlanmaz.
+    const { count } = await tx.examAttempt.updateMany({
+      where: { id: attempt.id, finishedAt: null },
+      data: { finishedAt: new Date(), score, correctCount: correct, totalCount: total, passed, assignedLevel },
+    });
+    if (!count) throw conflict("Bu sınav zaten tamamlandı.", "ATTEMPT_FINISHED");
+    await tx.attemptAnswer.createMany({
+      data: questions.map((q) => ({ attemptId: attempt.id, questionId: q.id, optionId: chosen.get(q.id) ?? null })),
+    });
+    if (assignedLevel) await tx.user.update({ where: { id: user.id }, data: { level: assignedLevel } });
+    if (courseReset) {
+      await tx.lessonProgress.deleteMany({ where: { userId: user.id, lesson: { courseId: attempt.exam.courseId } } });
+    }
+    return tx.examAttempt.findUnique({ where: { id: attempt.id } });
+  });
   return { attempt: finished, courseReset };
 }

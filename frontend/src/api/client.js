@@ -20,6 +20,15 @@ export const tokenStore = {
       /* depolama kapalıysa oturum sadece bu sekmede kalır */
     }
   },
+  /** Anahtarı yenilerken kullanıcının "beni hatırla" seçimini korur (aynı depoya yazar). */
+  replace: (token) => {
+    try {
+      const store = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+      store.setItem(TOKEN_KEY, token);
+    } catch {
+      /* yok say */
+    }
+  },
   clear: () => {
     try {
       localStorage.removeItem(TOKEN_KEY);

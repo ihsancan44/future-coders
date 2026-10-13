@@ -6,6 +6,7 @@ import { idParam } from "../lib/params.js";
 import { authorName } from "../lib/serializers.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
+import { likeText } from "../lib/validators.js";
 import { assertCourseAccess, courseProgress, getAccessibleCourse, progressInfo } from "../services/access.js";
 
 const router = Router();
@@ -60,8 +61,8 @@ router.get(
     if (category) where.category = category;
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { summary: { contains: search, mode: "insensitive" } },
+        { title: { contains: likeText(search), mode: "insensitive" } },
+        { summary: { contains: likeText(search), mode: "insensitive" } },
       ];
     }
     if (mine === "true" && req.user?.level) where.level = { in: ["ALL", req.user.level] };
@@ -201,11 +202,8 @@ router.post(
     await getAccessibleCourse(req.user, courseId);
     const lesson = await prisma.lesson.findFirst({ where: { id: lessonId, courseId } });
     if (!lesson) throw notFound("Ders bulunamadı.");
-    await prisma.lessonProgress.upsert({
-      where: { userId_lessonId: { userId: req.user.id, lessonId } },
-      update: {},
-      create: { userId: req.user.id, lessonId },
-    });
+    // Aynı anda gelen iki işaretleme çakışmasın diye "varsa dokunma" (ON CONFLICT DO NOTHING).
+    await prisma.lessonProgress.createMany({ data: [{ userId: req.user.id, lessonId }], skipDuplicates: true });
     res.json({ progress: await courseProgress(req.user.id, courseId) });
   }),
 );

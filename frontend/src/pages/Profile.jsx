@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, Progress, Table, Tag } from "antd";
 import { message } from "../utils/feedback";
 import dayjs from "dayjs";
-import { api } from "../api/client";
+import { api, tokenStore } from "../api/client";
 import PageBanner from "../components/PageBanner";
 import { useAuth } from "../context/AuthContext";
 import { useApi } from "../hooks/useApi";
@@ -38,9 +38,11 @@ export default function Profile() {
   const changePassword = async (values) => {
     setPwSaving(true);
     try {
-      await api.post("/auth/change-password", values);
+      const res = await api.post("/auth/change-password", values);
+      // Diğer cihazlardaki oturumlar kapandı; bu cihaz sunucunun verdiği yeni anahtarla devam eder.
+      if (res.data.token) tokenStore.replace(res.data.token);
       pwForm.resetFields();
-      message.success("Şifren değiştirildi.");
+      message.success("Şifren değiştirildi. Diğer cihazlardaki oturumların kapatıldı.");
     } catch (err) {
       message.error(applyApiErrors(pwForm, err));
     } finally {

@@ -64,6 +64,15 @@ cd backend && npm run db:seed && npm start   # ayrı terminalde
 cd backend && npm run test:e2e
 ```
 
+Uç durum senaryoları (yetki ve oturum güvenliği, aynı anda gelen istekler, öğrenci sınavdayken admin değişiklikleri, bozuk girdiler; 39 adım)
+aynı şekilde çalışır. Şifre sıfırlama adımı için sunucu çıktısının yazıldığı dosyayı `SERVER_LOG` ile verin:
+
+```bash
+cd backend && SERVER_LOG=sunucu.log npm run test:e2e:edge
+```
+
+Bu iki betik test kullanıcıları ekler; gerçek verilerin olduğu veritabanında çalıştırmayın.
+
 GitHub Actions her push ve pull request'te lint, test ve build adımlarını çalıştırır (`.github/workflows/ci.yml`).
 
 ## Uygulama kuralları
@@ -75,6 +84,8 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | Seviye sınavı sonucu | Puan ≥ eşik → Beta, altı → Alpha | Admin › Sınavlar › "Beta eşiği" (varsayılan %60) |
 | Seviye sınavı hakkı | Bir kez; admin öğrencinin sınavını sıfırlayabilir | Admin › Öğrenciler › "Sınavı sıfırla" |
 | Kurs erişimi | Öğrenci sadece kendi sınıfının ve "Herkese açık" kursları açar; Beta öğrenci Alpha kurslarına, Alpha öğrenci Beta kurslarına giremez (içerik, video, ilerleme, yorum ve final testi sunucuda da kapalı). Kurs listesi varsayılan olarak öğrenciye açık kursları gösterir | Kurs düzenleme › "Hangi sınıfa açık?" |
+| Oturumlar | Şifre değiştirilince ya da "şifremi unuttum" ile sıfırlanınca diğer cihazlardaki oturumlar kapanır; şifreyi değiştiren cihaz açık kalır | `backend/src/middleware/auth.js` |
+| Yayın kuralları | Dersi olmayan kurs ve sorusu olmayan sınav yayına alınamaz; yayındaki kursun son dersi ve yayındaki sınavın son sorusu silinemez; aynı anda tek seviye sınavı yayında olur | Admin › Kurslar / Sınavlar |
 | Sınıf değişikliği | Admin öğrencinin sınıfını değiştirirse erişim hemen değişir; sınıfı kaldırırsa öğrenci seviye sınavına yeniden girer | Admin › Üyeler |
 | Kurs ilerlemesi | Tamamlanan adım / toplam adım, yüzde olarak kurs kartında, kurs sayfasında ve profilde | `backend/src/services/access.js` |
 | Kurs sonu testi | Orta-zor seviye; kursun tüm adımları bitince açılır. Geçen öğrenci aynı teste tekrar girmez | Sınav düzenleme › "Geçme notu" (varsayılan %60) |

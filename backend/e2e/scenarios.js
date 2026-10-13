@@ -8,143 +8,32 @@
 // Doğru cevaplar test sırasında veritabanından okunur; bu yüzden betik sunucuyla aynı DATABASE_URL'i kullanır.
 // Giriş/kayıt hız sınırını (15 dakikada 30 istek) son senaryo bilerek aşar; betiği tekrar çalıştırmadan önce sunucuyu yeniden başlatın.
 import fs from "node:fs";
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-
-const BASE = (process.env.API_URL || "http://localhost:4000").replace(/\/$/, "");
-const SERVER_LOG = process.env.SERVER_LOG; // şifre sıfırlama bağlantısını okumak için (SMTP yoksa sunucu loga yazar)
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@futurecoders.dev";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin12345";
-const prisma = new PrismaClient();
-const run = Date.now().toString(36);
-
-const results = [];
-let group = "";
-
-class Fail extends Error {}
-function check(cond, msg) {
-  if (!cond) throw new Fail(msg);
-}
-function eq(actual, expected, what) {
-  check(actual === expected, `${what}: beklenen ${JSON.stringify(expected)}, gelen ${JSON.stringify(actual)}`);
-}
-
-async function step(id, title, expected, fn) {
-  try {
-    const actual = await fn();
-    results.push({ group, id, title, expected, actual: actual ?? "", ok: true });
-    console.log(`  ✓ ${id} ${title}`);
-  } catch (err) {
-    results.push({ group, id, title, expected, actual: err.message, ok: false });
-    console.log(`  ✗ ${id} ${title}\n      ${err.message}`);
-  }
-}
-
-async function http(method, path, { token, body, form } = {}) {
-  const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let payload;
-  if (form) payload = form;
-  else if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-    payload = JSON.stringify(body);
-  }
-  const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
-  const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-  return { status: res.status, body: data };
-}
-const get = (p, o) => http("GET", p, o);
-const post = (p, o) => http("POST", p, o);
-const put = (p, o) => http("PUT", p, o);
-const patch = (p, o) => http("PATCH", p, o);
-const del = (p, o) => http("DELETE", p, o);
-
-function status(res, expected, what = "HTTP durumu") {
-  check(res.status === expected, `${what}: beklenen ${expected}, gelen ${res.status} ${JSON.stringify(res.body)?.slice(0, 200)}`);
-}
-
-// ---------- yardımcılar ----------
-let regCount = 0;
-function newStudent(tag) {
-  regCount += 1;
-  return {
-    firstName: tag,
-    lastName: "Öğrenci",
-    email: `${tag.toLowerCase()}-${run}-${regCount}@test.dev`,
-    password: "Sifre12345",
-    confirmPassword: "Sifre12345",
-    birthDate: "2008-05-14",
-    school: "Atatürk Anadolu Lisesi",
-  };
-}
-
-async function register(tag) {
-  const data = newStudent(tag);
-  const res = await post("/api/auth/register", { body: data });
-  status(res, 201, "kayıt");
-  return { ...data, token: res.body.token, user: res.body.user };
-}
-
-/** Bir sınavın doğru şıklarını veritabanından okur. */
-async function answerKey(examId) {
-  const questions = await prisma.question.findMany({
-    where: { examId },
-    orderBy: { order: "asc" },
-    include: { options: { orderBy: { id: "asc" } } },
-  });
-  return questions.map((q) => ({
-    questionId: q.id,
-    right: q.options.find((o) => o.isCorrect).id,
-    wrong: q.options.find((o) => !o.isCorrect).id,
-  }));
-}
-
-/** İlk `correct` soruyu doğru, kalanları yanlış cevaplayan cevap listesi. */
-function answers(key, correct) {
-  return key.map((k, i) => ({ questionId: k.questionId, optionId: i < correct ? k.right : k.wrong }));
-}
-
-async function takePlacement(student, correct) {
-  const start = await post("/api/exams/placement/start", { token: student.token });
-  status(start, 201, "seviye sınavı başlatma");
-  const key = await answerKey(start.body.exam.id);
-  const res = await post(`/api/exams/attempts/${start.body.attempt.id}/submit`, {
-    token: student.token,
-    body: { answers: answers(key, correct) },
-  });
-  status(res, 200, "seviye sınavı gönderme");
-  student.user = res.body.user;
-  return res.body;
-}
-
-async function completeAll(token, course) {
-  let last;
-  for (const l of course.lessons) {
-    last = await post(`/api/courses/${course.id}/lessons/${l.id}/complete`, { token });
-    status(last, 200, `ders ${l.id} tamamlama`);
-  }
-  return last.body.progress;
-}
-
-async function takeFinal(token, courseId, correctRatio) {
-  const start = await post(`/api/exams/courses/${courseId}/final/start`, { token });
-  status(start, 201, "final başlatma");
-  const key = await answerKey(start.body.exam.id);
-  const res = await post(`/api/exams/attempts/${start.body.attempt.id}/submit`, {
-    token,
-    body: { answers: answers(key, Math.round(key.length * correctRatio)) },
-  });
-  status(res, 200, "final gönderme");
-  return { start: start.body, result: res.body };
-}
-
-const levelsOf = (courses) => [...new Set(courses.map((c) => c.level))].sort().join(",");
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  BASE,
+  Fail,
+  SERVER_LOG,
+  check,
+  completeAll,
+  del,
+  eq,
+  get,
+  levelsOf,
+  newStudent,
+  patch,
+  post,
+  prisma,
+  put,
+  register,
+  run,
+  runMain,
+  setGroup,
+  status,
+  step,
+  takeFinal,
+  takePlacement,
+} from "./helpers.js";
 
 // ---------- senaryolar ----------
 async function main() {
@@ -163,8 +52,7 @@ async function main() {
   const passCount = Math.ceil((placement.passingScore / 100) * N);
 
   // ================= MİSAFİR =================
-  group = "Misafir (giriş yapmamış ziyaretçi)";
-  console.log(`\n${group}`);
+  setGroup("Misafir (giriş yapmamış ziyaretçi)");
   await step("M1", "Kurs listesi açılır, her kurs 'giriş yapın' kilidiyle gelir", "200, tüm kurslarda canAccess=false, LOGIN_REQUIRED", async () => {
     const res = await get("/api/courses");
     status(res, 200);
@@ -205,8 +93,7 @@ async function main() {
   });
 
   // ================= YENİ KAYIT =================
-  group = "Yeni kayıt olan öğrenci";
-  console.log(`\n${group}`);
+  setGroup("Yeni kayıt olan öğrenci");
   const base = newStudent("Yeni");
   await step("Y1", "Boş form reddedilir, alan hataları döner", "400 + alan bazlı hata", async () => {
     const res = await post("/api/auth/register", { body: {} });
@@ -292,7 +179,8 @@ async function main() {
     const other = await prisma.question.findFirst({ where: { examId: { not: freshAttempt.exam.id } } });
     const q = freshAttempt.exam.questions[0];
     status(await post(`/api/exams/attempts/${freshAttempt.attempt.id}/submit`, { token: fresh.token, body: { answers: [{ questionId: other.id, optionId: null }] } }), 400, "yabancı soru");
-    status(await post(`/api/exams/attempts/${freshAttempt.attempt.id}/submit`, { token: fresh.token, body: { answers: [{ questionId: q.id, optionId: 999999 }] } }), 400, "geçersiz şık");
+    const foreignOption = await prisma.option.findFirst({ where: { questionId: { not: q.id } } });
+    status(await post(`/api/exams/attempts/${freshAttempt.attempt.id}/submit`, { token: fresh.token, body: { answers: [{ questionId: q.id, optionId: foreignOption.id }] } }), 400, "başka sorunun şıkkı");
     return "ikisi de 400, deneme açık kaldı";
   });
   await step("Y13", "Profil bilgileri güncellenir", "200, yeni okul adı", async () => {
@@ -332,8 +220,7 @@ async function main() {
   });
 
   // ================= ALFA =================
-  group = "ALFA öğrenci";
-  console.log(`\n${group}`);
+  setGroup("ALFA öğrenci");
   const alpha = await register("Alfa");
   await step("A1", `Seviye sınavında %${placement.passingScore} altı alan öğrenci ALFA olur`, `${passCount - 1}/${N} doğru → ALPHA`, async () => {
     const r = await takePlacement(alpha, passCount - 1);
@@ -464,8 +351,7 @@ async function main() {
   });
 
   // ================= BETA =================
-  group = "BETA öğrenci";
-  console.log(`\n${group}`);
+  setGroup("BETA öğrenci");
   const beta = await register("Beta");
   await step("B1", `Seviye sınavında tam %${placement.passingScore} alan öğrenci BETA olur (sınır değer)`, `${passCount}/${N} doğru → BETA`, async () => {
     const r = await takePlacement(beta, passCount);
@@ -537,8 +423,7 @@ async function main() {
   });
 
   // ================= ADMIN =================
-  group = "Admin";
-  console.log(`\n${group}`);
+  setGroup("Admin");
   let admin;
   await step("D1", "Admin giriş yapar", "200, rol ADMIN", async () => {
     const res = await post("/api/auth/login", { body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
@@ -730,8 +615,7 @@ async function main() {
   });
 
   // ================= GÜVENLİK =================
-  group = "Güvenlik";
-  console.log(`\n${group}`);
+  setGroup("Güvenlik");
   await step("G1", "Çok sayıda hatalı giriş denemesi hız sınırına takılır", "429", async () => {
     let res;
     for (let i = 0; i < 40; i++) {
@@ -742,15 +626,4 @@ async function main() {
   });
 }
 
-main()
-  .catch((err) => {
-    results.push({ group: "Betik", id: "X", title: "Beklenmeyen hata", expected: "", actual: err.stack, ok: false });
-    console.error(err);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-    const failed = results.filter((r) => !r.ok).length;
-    console.log(`\n${results.length - failed}/${results.length} adım başarılı`);
-    if (process.env.E2E_OUT) fs.writeFileSync(process.env.E2E_OUT, JSON.stringify(results, null, 2));
-    process.exitCode = failed ? 1 : 0;
-  });
+runMain(main);

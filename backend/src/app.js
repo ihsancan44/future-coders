@@ -9,7 +9,7 @@ import examRoutes from "./routes/exams.js";
 import blogRoutes from "./routes/blog.js";
 import careerRoutes from "./routes/career.js";
 import adminRoutes from "./routes/admin/index.js";
-import { errorHandler, notFoundHandler } from "./middleware/error.js";
+import { errorHandler, notFoundHandler, rejectNullChars } from "./middleware/error.js";
 
 export function createApp() {
   const app = express();
@@ -18,6 +18,7 @@ export function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cors({ origin: config.clientUrl.split(",").map((s) => s.trim()) }));
   app.use(express.json({ limit: "1mb" }));
+  app.use(rejectNullChars);
   if (!config.isTest) app.use(morgan("dev"));
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));

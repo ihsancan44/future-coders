@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { forbidden, unauthorized } from "../lib/errors.js";
 
 export function signToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+  return jwt.sign({ sub: user.id, role: user.role, ver: user.tokenVersion }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 }
 
 async function loadUser(req) {
@@ -18,7 +18,10 @@ async function loadUser(req) {
     throw unauthorized("Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.");
   }
   const user = await prisma.user.findUnique({ where: { id: Number(payload.sub) } });
-  if (!user) throw unauthorized("Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.");
+  // Şifre değişince tokenVersion artar ve önceki anahtarlar geçersiz olur ("ver" alanı olmayan eski anahtarlar 0 sayılır).
+  if (!user || (payload.ver ?? 0) !== user.tokenVersion) {
+    throw unauthorized("Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.");
+  }
   return user;
 }
 
