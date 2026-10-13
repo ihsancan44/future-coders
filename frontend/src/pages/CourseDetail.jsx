@@ -4,12 +4,12 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Alert, Button, Empty, Input, Popconfirm, Progress, Tabs, Tag } from "antd";
 import { message } from "../utils/feedback";
 import { CheckCircle2, Circle, Clock3, Lock, MessageCircle, Trash2 } from "lucide-react";
-import { api, apiError } from "../api/client";
+import { api, apiError, assetUrl } from "../api/client";
 import Cover from "../components/Cover";
 import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
-import { LEVEL_COLOR, LEVEL_LABEL, embedUrl, formatDate, formatDuration, paragraphs } from "../utils/format";
+import { LEVEL_COLOR, LEVEL_LABEL, embedUrl, formatDate, formatDuration, isVideoFile, paragraphs } from "../utils/format";
 
 function LockedNotice({ access }) {
   const actions = {
@@ -157,7 +157,8 @@ export default function CourseDetail() {
   const currentId = Number(params.get("lesson")) || lessons.find((l) => !l.completed)?.id || lessons[0]?.id;
   const index = lessons.findIndex((l) => l.id === currentId);
   const lesson = lessons[index];
-  const video = canAccess ? embedUrl(lesson?.videoUrl) : null;
+  const videoFile = canAccess && isVideoFile(lesson?.videoUrl) ? assetUrl(lesson.videoUrl) : null;
+  const video = canAccess && !videoFile ? embedUrl(lesson?.videoUrl) : null;
 
   const selectLesson = (lessonId) => setParams({ lesson: String(lessonId) }, { replace: false });
 
@@ -202,6 +203,8 @@ export default function CourseDetail() {
               <Cover image={course.coverImage} title={course.title} label={course.category} className="player__cover" />
               <LockedNotice access={course.access} />
             </>
+          ) : videoFile ? (
+            <video key={videoFile} src={videoFile} controls controlsList="nodownload" preload="metadata" title={lesson.title} />
           ) : video ? (
             <iframe
               src={video}

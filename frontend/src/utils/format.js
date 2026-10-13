@@ -16,6 +16,16 @@ export function formatDuration(minutes = 0) {
 const dateFmt = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric" });
 export const formatDate = (value) => (value ? dateFmt.format(new Date(value)) : "");
 
+/** Sunucuya yüklenmiş ya da doğrudan video dosyasına giden adres mi? (<video> ile oynatılır) */
+export function isVideoFile(url) {
+  if (!url) return false;
+  if (url.startsWith("/uploads/")) return true;
+  return /\.(mp4|webm|ogv|ogg)(\?.*)?$/i.test(url);
+}
+
+/** Ders tablolarında video durumunu kısaca anlatır. */
+export const videoLabel = (url) => (!url ? "Yok" : url.startsWith("/uploads/") ? "Yüklenen dosya" : "Bağlantı");
+
 /** YouTube izleme/kısa bağlantısını gömülebilir adrese çevirir; diğer adresleri olduğu gibi bırakır. */
 export function embedUrl(url) {
   if (!url) return null;

@@ -5,6 +5,7 @@ import { asyncHandler, notFound } from "../../lib/errors.js";
 import { idParam } from "../../lib/params.js";
 import { validate } from "../../middleware/validate.js";
 import { blogCard } from "../blog.js";
+import { removeUpload } from "../../lib/uploads.js";
 
 const router = Router();
 
@@ -47,7 +48,10 @@ router.put(
   "/:id",
   validate(postSchema.partial()),
   asyncHandler(async (req, res) => {
-    const post = await prisma.blogPost.update({ where: { id: idParam(req.params.id) }, data: req.body });
+    const id = idParam(req.params.id);
+    const before = await prisma.blogPost.findUnique({ where: { id }, select: { coverImage: true } });
+    const post = await prisma.blogPost.update({ where: { id }, data: req.body });
+    if (before && before.coverImage !== post.coverImage) await removeUpload(before.coverImage);
     res.json({ post });
   }),
 );
@@ -67,7 +71,8 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    await prisma.blogPost.delete({ where: { id: idParam(req.params.id) } });
+    const post = await prisma.blogPost.delete({ where: { id: idParam(req.params.id) } });
+    await removeUpload(post.coverImage);
     res.status(204).end();
   }),
 );

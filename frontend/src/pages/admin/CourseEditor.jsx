@@ -6,9 +6,10 @@ import { message } from "../../utils/feedback";
 import { ArrowDown, ArrowUp, Plus } from "lucide-react";
 import { api, apiError } from "../../api/client";
 import ImageUpload from "../../components/ImageUpload";
+import VideoInput from "../../components/VideoInput";
 import { ErrorState, Loading } from "../../components/Status";
 import { useApi } from "../../hooks/useApi";
-import { formatDuration } from "../../utils/format";
+import { formatDuration, videoLabel } from "../../utils/format";
 import { applyApiErrors } from "../../utils/forms";
 
 const levelOptions = [
@@ -43,9 +44,7 @@ function LessonModal({ courseId, lesson, open, onClose, onSaved }) {
     <Modal title={lesson ? "Dersi düzenle" : "Ders ekle"} open={open} onCancel={onClose} onOk={() => form.submit()} okText="Kaydet" cancelText="Vazgeç" confirmLoading={saving} destroyOnClose width={640}>
       <Form form={form} layout="vertical" onFinish={save}>
         <Form.Item name="title" label="Ders başlığı" rules={[{ required: true, message: "Başlık girin." }]}><Input /></Form.Item>
-        <Form.Item name="videoUrl" label="Video adresi" extra="YouTube veya Vimeo bağlantısı yapıştırın.">
-          <Input placeholder="https://www.youtube.com/watch?v=..." />
-        </Form.Item>
+        <Form.Item name="videoUrl" label="Video"><VideoInput /></Form.Item>
         <Form.Item name="durationMinutes" label="Süre (dakika)"><InputNumber min={0} max={1000} /></Form.Item>
         <Form.Item name="content" label="Ders açıklaması" extra="Paragrafları boş bir satırla ayırın.">
           <Input.TextArea autoSize={{ minRows: 4, maxRows: 12 }} />
@@ -185,7 +184,7 @@ export default function CourseEditor() {
             columns={[
               { title: "#", dataIndex: "order", width: 50 },
               { title: "Başlık", dataIndex: "title" },
-              { title: "Video", dataIndex: "videoUrl", render: (v) => (v ? "Var" : "Yok") },
+              { title: "Video", dataIndex: "videoUrl", render: videoLabel },
               { title: "Süre", dataIndex: "durationMinutes", render: (m) => formatDuration(m) },
               {
                 title: "",

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { asyncHandler, badRequest, notFound } from "../../lib/errors.js";
 import { idParam } from "../../lib/params.js";
+import { LOCAL_UPLOAD, removeUpload, removeUploads } from "../../lib/uploads.js";
 import { validate } from "../../middleware/validate.js";
 
 const router = Router();
@@ -20,7 +21,13 @@ const courseSchema = z.object({
 const lessonSchema = z.object({
   title: z.string().trim().min(2, "Ders başlığı girin.").max(150),
   content: z.string().trim().max(20000).default(""),
-  videoUrl: z.string().trim().url("Geçerli bir video adresi girin.").max(500).nullable().optional().or(z.literal("").transform(() => null)),
+  /** YouTube/Vimeo bağlantısı ya da sunucuya yüklenmiş video (/uploads/...). */
+  videoUrl: z
+    .union([z.string().trim().url().max(500), z.string().trim().regex(LOCAL_UPLOAD), z.literal("").transform(() => null)], {
+      errorMap: () => ({ message: "Geçerli bir video adresi girin veya video yükleyin." }),
+    })
+    .nullable()
+    .optional(),
   durationMinutes: z.coerce.number().int().min(0).max(1000).default(0),
 });
 
@@ -67,7 +74,11 @@ router.put(
   "/:id",
   validate(courseSchema.partial()),
   asyncHandler(async (req, res) => {
-    const course = await prisma.course.update({ where: { id: idParam(req.params.id) }, data: req.body });
+    const id = idParam(req.params.id);
+    const before = await prisma.course.findUnique({ where: { id }, select: { coverImage: true } });
+    if (!before) throw notFound("Kurs bulunamadı.");
+    const course = await prisma.course.update({ where: { id }, data: req.body });
+    if (before.coverImage !== course.coverImage) await removeUpload(before.coverImage);
     res.json({ course });
   }),
 );
@@ -89,7 +100,11 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    await prisma.course.delete({ where: { id: idParam(req.params.id) } });
+    const id = idParam(req.params.id);
+    const course = await prisma.course.findUnique({ where: { id }, include: { lessons: { select: { videoUrl: true } } } });
+    if (!course) throw notFound("Kurs bulunamadı.");
+    await prisma.course.delete({ where: { id } });
+    await removeUploads([course.coverImage, ...course.lessons.map((l) => l.videoUrl)]);
     res.status(204).end();
   }),
 );
@@ -116,6 +131,7 @@ router.put(
     const existing = await prisma.lesson.findFirst({ where: { id: lessonId, courseId } });
     if (!existing) throw notFound("Ders bulunamadı.");
     const lesson = await prisma.lesson.update({ where: { id: lessonId }, data: req.body });
+    if (existing.videoUrl !== lesson.videoUrl) await removeUpload(existing.videoUrl);
     res.json({ lesson });
   }),
 );
@@ -124,8 +140,10 @@ router.delete(
   "/:id/lessons/:lessonId",
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
-    const { count } = await prisma.lesson.deleteMany({ where: { id: idParam(req.params.lessonId), courseId } });
-    if (!count) throw notFound("Ders bulunamadı.");
+    const lesson = await prisma.lesson.findFirst({ where: { id: idParam(req.params.lessonId), courseId } });
+    if (!lesson) throw notFound("Ders bulunamadı.");
+    await prisma.lesson.delete({ where: { id: lesson.id } });
+    await removeUpload(lesson.videoUrl);
     res.status(204).end();
   }),
 );

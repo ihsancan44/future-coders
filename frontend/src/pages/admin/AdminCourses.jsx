@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Popconfirm, Switch, Table, Tag } from "antd";
+import { Button, Popconfirm, Switch, Table, Tag, Typography } from "antd";
 import { message } from "../../utils/feedback";
 import { Plus } from "lucide-react";
 import { api, apiError } from "../../api/client";
@@ -16,6 +16,19 @@ export default function AdminCourses() {
       await api.patch(`/admin/courses/${course.id}/publish`, { published });
       setData((d) => ({ courses: d.courses.map((c) => (c.id === course.id ? { ...c, published } : c)) }));
       message.success(published ? "Kurs yayınlandı." : "Kurs gizlendi.");
+    } catch (err) {
+      message.error(apiError(err).message);
+    }
+  };
+
+  const rename = async (course, value) => {
+    const title = value.trim();
+    if (title === course.title) return;
+    if (title.length < 3) return message.error("Başlık en az 3 karakter olmalı.");
+    try {
+      await api.put(`/admin/courses/${course.id}`, { title });
+      setData((d) => ({ courses: d.courses.map((c) => (c.id === course.id ? { ...c, title } : c)) }));
+      message.success("Kurs başlığı güncellendi.");
     } catch (err) {
       message.error(apiError(err).message);
     }
@@ -44,7 +57,15 @@ export default function AdminCourses() {
         dataSource={data?.courses || []}
         scroll={{ x: true }}
         columns={[
-          { title: "Başlık", dataIndex: "title", render: (t, c) => <Link to={`/admin/courses/${c.id}`}>{t}</Link> },
+          {
+            title: "Başlık",
+            dataIndex: "title",
+            render: (t, c) => (
+              <Typography.Text editable={{ text: t, tooltip: "Başlığı düzenle", onChange: (v) => rename(c, v) }}>
+                <Link to={`/admin/courses/${c.id}`}>{t}</Link>
+              </Typography.Text>
+            ),
+          },
           { title: "Kategori", dataIndex: "category" },
           { title: "Sınıf", dataIndex: "level", render: (l) => <Tag color={LEVEL_COLOR[l]}>{LEVEL_LABEL[l]}</Tag> },
           { title: "Ders", dataIndex: "lessonCount", align: "right" },

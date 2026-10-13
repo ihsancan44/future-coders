@@ -26,6 +26,7 @@ import AdminExams from "./pages/admin/AdminExams";
 import ExamEditor from "./pages/admin/ExamEditor";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminComments from "./pages/admin/AdminComments";
+import AdminVideos from "./pages/admin/AdminVideos";
 
 export const routes = [
   {
@@ -56,6 +57,7 @@ export const routes = [
       { index: true, element: <Dashboard /> },
       { path: "courses", element: <AdminCourses /> },
       { path: "courses/:id", element: <CourseEditor /> },
+      { path: "videos", element: <AdminVideos /> },
       { path: "blog", element: <AdminBlog /> },
       { path: "blog/:id", element: <BlogEditor /> },
       { path: "exams", element: <AdminExams /> },
