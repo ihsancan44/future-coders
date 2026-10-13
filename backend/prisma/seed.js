@@ -210,7 +210,7 @@ async function main() {
     where: { email },
     update: {},
     create: {
-      firstName: "FutureCoders",
+      firstName: "Codevia",
       lastName: "Admin",
       email,
       passwordHash: await bcrypt.hash(password, 10),
@@ -218,6 +218,10 @@ async function main() {
     },
   });
   console.log(`Admin hesabı: ${email}`);
+
+  // Site adı FutureCoders'tan Codevia'ya değişti; eski kurulumlardaki adları da güncelle.
+  if (admin.firstName === "FutureCoders") await prisma.user.update({ where: { id: admin.id }, data: { firstName: "Codevia" } });
+  await prisma.exam.updateMany({ where: { title: "FutureCoders Seviye Sınavı" }, data: { title: "Codevia Seviye Sınavı" } });
 
   if ((await prisma.course.count()) > 0) {
     await upgradeFinalExams();
@@ -263,7 +267,7 @@ async function main() {
   await prisma.exam.create({
     data: {
       type: "PLACEMENT",
-      title: "FutureCoders Seviye Sınavı",
+      title: "Codevia Seviye Sınavı",
       description:
         "Bu sınav seni Alpha (başlangıç) ya da Beta (ileri) sınıfına yerleştirir. Bilmediğin soruları boş bırakabilirsin.",
       durationMinutes: 20,

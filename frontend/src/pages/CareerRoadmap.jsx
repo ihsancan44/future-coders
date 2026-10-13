@@ -64,7 +64,7 @@ export default function CareerRoadmap() {
         <ol className="timeline">
           <li className="timeline__start">
             <span className="timeline__dot"><Flag size={18} /></span>
-            <div><strong>Başlangıç</strong><p className="muted">FutureCoders'ta bitirdiğin kurslar bu yolun ilk adımı.</p></div>
+            <div><strong>Başlangıç</strong><p className="muted">Codevia'da bitirdiğin kurslar bu yolun ilk adımı.</p></div>
           </li>
           {career.stages.map((s, i) => (
             <li key={s.title} id={`asama-${i + 1}`} className="timeline__item">

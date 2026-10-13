@@ -1,4 +1,4 @@
-# FutureCoders
+# Codevia
 
 Üniversite öncesi öğrencilere yazılım öğreten eğitim platformu. Öğrenci kayıt olur, seviye sınavına girer, sonucuna göre **Alpha** (başlangıç) ya da **Beta** (ileri) sınıfına yerleşir, sınıfına açık kursları adım adım tamamlar ve her kursun sonunda final sınavına girer. Admin paneli kursları, yol haritası blogunu, sınavları ve öğrencileri yönetir.
 

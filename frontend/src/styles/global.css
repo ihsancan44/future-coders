@@ -1866,3 +1866,11 @@ img {
 .danger-link {
   color: #dc2626;
 }
+
+.brand-via {
+  color: var(--accent);
+}
+
+.footer__brand .brand-via {
+  color: #ff6b8b;
+}

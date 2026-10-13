@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Layout, Menu } from "antd";
 import { BarChart3, BookOpen, ClipboardList, FileText, Home, LogOut, MessageSquare, Users, Video } from "lucide-react";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 import { useAuth } from "../context/AuthContext";
 
 const items = [
@@ -30,7 +30,7 @@ export default function AdminLayout() {
       <Layout.Sider breakpoint="lg" collapsedWidth={0} collapsed={collapsed} onCollapse={setCollapsed} width={230} theme="light" className="admin__sider">
         <Link to="/admin" className="admin__brand">
           <img src={logo} alt="" />
-          <span>FutureCoders<small>Yönetim</small></span>
+          <span>Code<span className="brand-via">via</span><small>Yönetim</small></span>
         </Link>
         <Menu
           mode="inline"
