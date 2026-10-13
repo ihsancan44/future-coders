@@ -14,5 +14,5 @@ export function publicUser(user) {
 }
 
 export function authorName(user) {
-  return user ? `${user.firstName} ${user.lastName}` : "FutureCoders";
+  return user ? `${user.firstName} ${user.lastName}` : "Codevia";
 }

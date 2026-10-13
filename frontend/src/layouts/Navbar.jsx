@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Dropdown } from "antd";
 import { Compass, LayoutDashboard, LogOut, Menu, User, X } from "lucide-react";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 import { useAuth } from "../context/AuthContext";
 import { LEVEL_LABEL } from "../utils/format";
 
@@ -33,7 +33,7 @@ export default function Navbar() {
       <div className="navbar__inner">
         <Link to="/" className="navbar__brand" onClick={close}>
           <img src={logo} alt="" />
-          <span>FutureCoders</span>
+          <span>Code<span className="brand-via">via</span></span>
         </Link>
         <button className="navbar__toggle" aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? <X /> : <Menu />}

@@ -125,7 +125,7 @@ router.post(
       const link = `${config.clientUrl}/reset-password?token=${token}`;
       await sendMail({
         to: user.email,
-        subject: "FutureCoders şifre sıfırlama",
+        subject: "Codevia şifre sıfırlama",
         text: `Merhaba ${user.firstName},\n\nŞifrenizi sıfırlamak için bu bağlantıyı açın (1 saat geçerli):\n${link}\n\nBu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz.`,
       });
       if (config.isTest) res.locals.resetToken = token;

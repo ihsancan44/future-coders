@@ -26,7 +26,7 @@ export const config = {
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
   },
-  mailFrom: process.env.MAIL_FROM || "FutureCoders <no-reply@futurecoders.dev>",
+  mailFrom: process.env.MAIL_FROM || "Codevia <no-reply@futurecoders.dev>",
   /** Seviye sınavında bu yüzdenin altı ALPHA, üstü BETA sınıfına atanır (sınavın kendi eşiği yoksa). */
   defaultPassingScore: 60,
 };

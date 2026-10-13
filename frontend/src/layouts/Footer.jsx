@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 
 export default function Footer() {
   return (
@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="footer__brand">
           <img src={logo} alt="" />
           <div>
-            <strong>FutureCoders</strong>
+            <strong>Code<span className="brand-via">via</span></strong>
             <p>Üniversiteye geçmeden yazılım öğren, rakiplerinin önüne geç.</p>
           </div>
         </div>
@@ -19,7 +19,7 @@ export default function Footer() {
           <Link to="/login">Giriş</Link>
         </nav>
       </div>
-      <div className="footer__bottom">© {new Date().getFullYear()} FutureCoders</div>
+      <div className="footer__bottom">© {new Date().getFullYear()} Codevia</div>
     </footer>
   );
 }
