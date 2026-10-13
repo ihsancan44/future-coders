@@ -22,11 +22,11 @@ router.use(requireAuth);
 router.get(
   "/placement",
   asyncHandler(async (req, res) => {
-    const last = await prisma.examAttempt.findFirst({
-      where: { userId: req.user.id, exam: { type: "PLACEMENT" }, finishedAt: { not: null } },
-      orderBy: { finishedAt: "desc" },
-    });
-    if (last || req.user.level) {
+    if (req.user.level) {
+      const last = await prisma.examAttempt.findFirst({
+        where: { userId: req.user.id, exam: { type: "PLACEMENT" }, finishedAt: { not: null } },
+        orderBy: { finishedAt: "desc" },
+      });
       return res.json({ status: "DONE", level: req.user.level, attempt: last ? attemptSummary(last) : null });
     }
     const exam = await getPlacementExam();

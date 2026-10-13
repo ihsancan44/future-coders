@@ -64,10 +64,8 @@ export async function startAttempt(user, exam) {
   if (user.role === "ADMIN") throw forbidden("Admin hesabıyla sınava girilemez.");
 
   if (exam.type === "PLACEMENT") {
-    const done = await prisma.examAttempt.findFirst({
-      where: { userId: user.id, exam: { type: "PLACEMENT" }, finishedAt: { not: null } },
-    });
-    if (done || user.level) throw conflict("Seviye sınavını zaten tamamladınız.", "PLACEMENT_DONE");
+    // Sınıfı olan öğrenci sınavı tamamlamıştır. Admin sınıfı kaldırırsa öğrenci sınava yeniden girebilir.
+    if (user.level) throw conflict("Seviye sınavını zaten tamamladınız.", "PLACEMENT_DONE");
   } else {
     const passed = await prisma.examAttempt.findFirst({ where: { userId: user.id, examId: exam.id, passed: true } });
     if (passed) throw conflict("Bu kursun final testini zaten geçtin.", "FINAL_PASSED");
@@ -95,6 +93,11 @@ export async function submitAttempt(user, attemptId, answers) {
   });
   if (!attempt || attempt.userId !== user.id) throw notFound("Sınav denemesi bulunamadı.");
   if (attempt.finishedAt) throw conflict("Bu sınav zaten tamamlandı.", "ATTEMPT_FINISHED");
+  if (attempt.exam.type === "PLACEMENT" && user.level) {
+    throw conflict("Seviye sınavını zaten tamamladınız.", "PLACEMENT_DONE");
+  }
+  // Sınav sırasında kursun sınıfı ya da öğrencinin sınıfı değiştiyse final sonucu kaydedilmez.
+  if (attempt.exam.type === "FINAL") await getAccessibleCourse(user, attempt.exam.courseId);
 
   const questions = attempt.exam.questions;
   const byQuestion = new Map(questions.map((q) => [q.id, q]));

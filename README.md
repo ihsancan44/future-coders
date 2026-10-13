@@ -56,6 +56,14 @@ cd frontend && npm test       # arayüz testleri
 npm run lint                  # her iki klasörde de çalışır
 ```
 
+Uçtan uca senaryolar (misafir, yeni kayıt, Alpha, Beta ve admin akışları; 73 adım) çalışan bir sunucuya karşı denenir.
+Boş ve seed edilmiş bir veritabanı kullanın; giriş hız sınırını son adım bilerek aştığı için tekrar çalıştırmadan önce sunucuyu yeniden başlatın:
+
+```bash
+cd backend && npm run db:seed && npm start   # ayrı terminalde
+cd backend && npm run test:e2e
+```
+
 GitHub Actions her push ve pull request'te lint, test ve build adımlarını çalıştırır (`.github/workflows/ci.yml`).
 
 ## Uygulama kuralları
@@ -66,7 +74,8 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | --- | --- | --- |
 | Seviye sınavı sonucu | Puan ≥ eşik → Beta, altı → Alpha | Admin › Sınavlar › "Beta eşiği" (varsayılan %60) |
 | Seviye sınavı hakkı | Bir kez; admin öğrencinin sınavını sıfırlayabilir | Admin › Öğrenciler › "Sınavı sıfırla" |
-| Kurs erişimi | Öğrenci kendi sınıfının ve "Herkese açık" kursları açar | Kurs düzenleme › "Hangi sınıfa açık?" |
+| Kurs erişimi | Öğrenci sadece kendi sınıfının ve "Herkese açık" kursları açar; Beta öğrenci Alpha kurslarına, Alpha öğrenci Beta kurslarına giremez (içerik, video, ilerleme, yorum ve final testi sunucuda da kapalı). Kurs listesi varsayılan olarak öğrenciye açık kursları gösterir | Kurs düzenleme › "Hangi sınıfa açık?" |
+| Sınıf değişikliği | Admin öğrencinin sınıfını değiştirirse erişim hemen değişir; sınıfı kaldırırsa öğrenci seviye sınavına yeniden girer | Admin › Üyeler |
 | Kurs ilerlemesi | Tamamlanan adım / toplam adım, yüzde olarak kurs kartında, kurs sayfasında ve profilde | `backend/src/services/access.js` |
 | Kurs sonu testi | Orta-zor seviye; kursun tüm adımları bitince açılır. Geçen öğrenci aynı teste tekrar girmez | Sınav düzenleme › "Geçme notu" (varsayılan %60) |
 | Testte kalmak | O kurstaki tüm ilerleme silinir, öğrenci kursa baştan başlar | `backend/src/services/exams.js` |
