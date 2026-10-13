@@ -145,3 +145,43 @@ describe("final testi", () => {
     expect(res.body.code).toBe("LEVEL_MISMATCH");
   });
 });
+
+describe("sınıf değişikliği", () => {
+  it("admin sınıfı kaldırınca öğrenci seviye sınavına yeniden girer", async () => {
+    const exam = await createExam();
+    const admin = await createUser({ role: "ADMIN" });
+    const { user, auth } = await createUser();
+    const first = await api().post("/api/exams/placement/start").set(auth);
+    await api().post(`/api/exams/attempts/${first.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 1) });
+
+    await api().patch(`/api/admin/users/${user.id}`).set(admin.auth).send({ level: null });
+    expect((await api().get("/api/exams/placement").set(auth)).body.status).toBe("PENDING");
+    const second = await api().post("/api/exams/placement/start").set(auth);
+    expect(second.status).toBe(201);
+    const res = await api().post(`/api/exams/attempts/${second.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 5) });
+    expect(res.body.user.level).toBe("BETA");
+  });
+
+  it("sınıfı atanmış öğrencinin yarım kalan seviye sınavı sonucu sınıfını değiştirmez", async () => {
+    const exam = await createExam();
+    const admin = await createUser({ role: "ADMIN" });
+    const { user, auth } = await createUser();
+    const start = await api().post("/api/exams/placement/start").set(auth);
+    await api().patch(`/api/admin/users/${user.id}`).set(admin.auth).send({ level: "ALPHA" });
+    const res = await api().post(`/api/exams/attempts/${start.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 5) });
+    expect(res.status).toBe(409);
+    expect((await prisma.user.findUnique({ where: { id: user.id } })).level).toBe("ALPHA");
+  });
+
+  it("final sırasında sınıfı değişen öğrencinin sonucu kaydedilmez", async () => {
+    const { course, exam } = await createCourse({ level: "ALPHA", lessons: 1, withFinal: true });
+    const admin = await createUser({ role: "ADMIN" });
+    const { user, auth } = await createUser({ level: "ALPHA" });
+    await completeAll(course, auth);
+    const start = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    await api().patch(`/api/admin/users/${user.id}`).set(admin.auth).send({ level: "BETA" });
+    const res = await api().post(`/api/exams/attempts/${start.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 5) });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("LEVEL_MISMATCH");
+  });
+});

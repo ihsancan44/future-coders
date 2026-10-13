@@ -3,6 +3,7 @@ import { forbidden, notFound, unauthorized } from "../lib/errors.js";
 
 export const PLACEMENT_REQUIRED = "PLACEMENT_REQUIRED";
 export const LEVEL_MISMATCH = "LEVEL_MISMATCH";
+const LEVEL_NAME = { ALPHA: "Alpha", BETA: "Beta" };
 
 /** Öğrenci kendi sınıfının ve "ALL" seviyesindeki kursları açabilir; admin her şeyi açar. */
 export function courseVisibleTo(user) {
@@ -19,7 +20,10 @@ export function assertCourseAccess(user, course) {
     throw forbidden("Kurslara başlamadan önce seviye sınavını tamamlamalısınız.", PLACEMENT_REQUIRED);
   }
   if (course.level !== "ALL" && course.level !== user.level) {
-    throw forbidden("Bu kurs sizin sınıfınıza açık değil.", LEVEL_MISMATCH);
+    throw forbidden(
+      `Bu kurs ${LEVEL_NAME[course.level]} sınıfına özel. Sen ${LEVEL_NAME[user.level]} sınıfındasın, bu kursa erişimin yok.`,
+      LEVEL_MISMATCH,
+    );
   }
 }
 

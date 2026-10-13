@@ -13,7 +13,9 @@ export default function Courses() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState();
   const [searchParams] = useSearchParams();
-  const [level, setLevel] = useState(searchParams.get("mine") === "true" ? "MINE" : "ALL_LEVELS");
+  // Sınıfı belli öğrenci varsayılan olarak sadece kendine açık kursları görür; diğerlerini filtreyle (kilitli) görebilir.
+  const [chosenLevel, setLevel] = useState(searchParams.get("mine") === "true" ? "MINE" : null);
+  const level = chosenLevel ?? (user?.level && user.role !== "ADMIN" ? "MINE" : "ALL_LEVELS");
   const [sort, setSort] = useState("new");
 
   const params = {
