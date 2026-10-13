@@ -6,7 +6,7 @@ import { api, apiError } from "../../api/client";
 import { ErrorState, Loading } from "../../components/Status";
 import { useApi } from "../../hooks/useApi";
 import { applyApiErrors } from "../../utils/forms";
-import { LEVEL_COLOR, LEVEL_LABEL, formatDate } from "../../utils/format";
+import { LEVEL_COLOR, LEVEL_LABEL, formatDate, formatDay } from "../../utils/format";
 
 /** Üyenin bilgileri, kurs ilerlemesi ve sınav sonuçları; bilgileri düzenleme ve üyeyi silme. */
 export default function MemberDrawer({ userId, isSelf, onClose, onUpdated, onDeleted }) {
@@ -57,7 +57,7 @@ export default function MemberDrawer({ userId, isSelf, onClose, onUpdated, onDel
             <Descriptions.Item label="Rol">{user.role === "ADMIN" ? "Admin" : "Öğrenci"}</Descriptions.Item>
             <Descriptions.Item label="Sınıf">{user.level ? <Tag color={LEVEL_COLOR[user.level]}>{LEVEL_LABEL[user.level]}</Tag> : "Seviye sınavına girmedi"}</Descriptions.Item>
             <Descriptions.Item label="Okul">{user.school || "—"}</Descriptions.Item>
-            <Descriptions.Item label="Doğum tarihi">{user.birthDate ? formatDate(user.birthDate) : "—"}</Descriptions.Item>
+            <Descriptions.Item label="Doğum tarihi">{user.birthDate ? formatDay(user.birthDate) : "—"}</Descriptions.Item>
             <Descriptions.Item label="Seçtiği alan">{user.careerTitle ? `${user.careerTitle} (${formatDate(user.careerChosenAt)})` : "—"}</Descriptions.Item>
             <Descriptions.Item label="Yorum sayısı">{user.commentCount}</Descriptions.Item>
             <Descriptions.Item label="Kayıt tarihi">{formatDate(user.createdAt)}</Descriptions.Item>

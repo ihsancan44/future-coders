@@ -122,6 +122,7 @@ router.post(
   validate(lessonSchema),
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
+    if (!(await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } }))) throw notFound("Kurs bulunamadı.");
     const last = await prisma.lesson.findFirst({ where: { courseId }, orderBy: { order: "desc" } });
     const lesson = await prisma.lesson.create({ data: { ...req.body, courseId, order: (last?.order ?? 0) + 1 } });
     res.status(201).json({ lesson });
@@ -146,12 +147,17 @@ router.delete(
   "/:id/lessons/:lessonId",
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
-    const lesson = await prisma.lesson.findFirst({ where: { id: idParam(req.params.lessonId), courseId }, include: { course: true } });
-    if (!lesson) throw notFound("Ders bulunamadı.");
-    if (lesson.course.published && (await prisma.lesson.count({ where: { courseId } })) === 1) {
-      throw badRequest("Yayındaki kursun son dersi silinemez. Önce yeni bir ders ekleyin ya da kursu yayından kaldırın.");
-    }
-    await prisma.lesson.delete({ where: { id: lesson.id } });
+    const lesson = await prisma.$transaction(async (tx) => {
+      // Kurs satırı kilitlenir: aynı anda gelen iki silme isteği "son ders" kuralını birlikte atlatamasın.
+      const [course] = await tx.$queryRaw`SELECT id, published FROM "Course" WHERE id = ${courseId} FOR UPDATE`;
+      const found = course && (await tx.lesson.findFirst({ where: { id: idParam(req.params.lessonId), courseId } }));
+      if (!found) throw notFound("Ders bulunamadı.");
+      await tx.lesson.delete({ where: { id: found.id } });
+      if (course.published && (await tx.lesson.count({ where: { courseId } })) === 0) {
+        throw badRequest("Yayındaki kursun son dersi silinemez. Önce yeni bir ders ekleyin ya da kursu yayından kaldırın.");
+      }
+      return found;
+    });
     await removeUpload(lesson.videoUrl);
     res.status(204).end();
   }),
@@ -162,6 +168,7 @@ router.put(
   validate(z.object({ lessonIds: z.array(z.number().int().positive()).min(1) })),
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
+    if (!(await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } }))) throw notFound("Kurs bulunamadı.");
     const lessons = await prisma.lesson.findMany({ where: { courseId }, select: { id: true } });
     const ids = new Set(lessons.map((l) => l.id));
     const given = req.body.lessonIds;

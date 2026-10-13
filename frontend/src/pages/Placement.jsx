@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { Link, useLocation } from "react-router-dom";
 import { Alert, Button, Result } from "antd";
@@ -38,6 +38,12 @@ export default function Placement() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(null);
 
+  // Sınıf sunucuda değişmiş (ör. süresi dolan sınav puanlandı ya da admin atadı): üst menü ve kurslar güncellensin.
+  const doneLevel = data?.status === "DONE" ? data.level : null;
+  useEffect(() => {
+    if (doneLevel) setUser((u) => (u && u.level !== doneLevel ? { ...u, level: doneLevel } : u));
+  }, [doneLevel, setUser]);
+
   if (isAdmin) return <ErrorState message="Admin hesapları seviye sınavına girmez." />;
   if (result) return <section className="section section--narrow"><LevelResult attempt={result.attempt} level={result.user.level} /></section>;
   if (session) {
@@ -46,6 +52,8 @@ export default function Placement() {
         <ExamRunner
           exam={session.exam}
           attempt={session.attempt}
+          draft={session.draft}
+          serverNow={session.serverNow}
           onFinished={(res) => {
             setUser(res.user);
             setResult(res);
@@ -65,8 +73,11 @@ export default function Placement() {
       const res = await api.post("/exams/placement/start");
       setSession(res.data);
     } catch (err) {
-      setStartError(apiError(err).message);
+      const e = apiError(err);
       setStarting(false);
+      // Süresi dolan deneme bu sırada puanlandıysa sonuç ekranı gösterilir.
+      if (e.code === "PLACEMENT_DONE") return reload();
+      setStartError(e.message);
     }
   };
 
@@ -82,7 +93,7 @@ export default function Placement() {
           <li><strong>{exam.durationMinutes ? `${exam.durationMinutes} dk` : "Süresiz"}</strong> süre</li>
           <li><strong>1</strong> deneme hakkı</li>
         </ul>
-        <p className="muted">Sınav sonucuna göre Alpha (başlangıç) veya Beta (ileri) sınıfına yerleşeceksin. Sınavı yarıda bırakırsan süre işlemeye devam eder: süre dolmadan dönersen kaldığın yerden devam edersin, süre dolduysa sınava yeni bir süreyle baştan başlarsın.</p>
+        <p className="muted">Sınav sonucuna göre Alpha (başlangıç) veya Beta (ileri) sınıfına yerleşeceksin. Sınavı yarıda bırakırsan süre işlemeye devam eder: süre dolmadan dönersen kaldığın yerden devam edersin. Süre dolarsa sınav, o ana kadar işaretlediğin cevaplarla puanlanır.</p>
         {startError && <Alert type="error" showIcon message={startError} />}
         <Button type="primary" size="large" loading={starting} onClick={start}>Sınava başla</Button>
       </div>

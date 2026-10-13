@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiError } from "../api/client";
 
 /** GET isteğini yükler; { data, error, loading, reload, setData } döndürür. url null ise istek atmaz. */
@@ -6,15 +6,18 @@ export function useApi(url, params) {
   const paramKey = JSON.stringify(params || {});
   const key = url ? `${url}?${paramKey}` : null;
   const [state, setState] = useState({ key: null, data: null, error: null, fetching: false });
+  // Filtreler hızlı değişince geç gelen eski cevap yeni cevabın üstüne yazılmasın: sadece son istek sayılır.
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = ++latest.current;
     setState((s) => ({ ...s, fetching: true, error: null }));
     try {
       const res = await api.get(url, { params: JSON.parse(paramKey) });
-      setState({ key, data: res.data, error: null, fetching: false });
+      if (ticket === latest.current) setState({ key, data: res.data, error: null, fetching: false });
     } catch (err) {
-      setState({ key, data: null, error: apiError(err), fetching: false });
+      if (ticket === latest.current) setState({ key, data: null, error: apiError(err), fetching: false });
     }
   }, [key, url, paramKey]);
 

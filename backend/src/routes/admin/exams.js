@@ -101,7 +101,14 @@ router.put(
     const existing = await prisma.exam.findUnique({ where: { id } });
     if (!existing) throw notFound("Sınav bulunamadı.");
     const data = { ...req.body };
-    if (existing.type === "FINAL" && data.courseId !== undefined) await checkExamTarget({ type: "FINAL", courseId: data.courseId }, id);
+    if (existing.type === "FINAL" && data.courseId !== undefined && data.courseId !== existing.courseId) {
+      // Sonuçlar kursa sınav üzerinden bağlı: denemesi olan final başka kursa taşınırsa eski kursu geçenler yeni kursu
+      // geçmiş sayılırdı. Böyle bir final taşınmaz; yeni kurs için yeni final oluşturulur.
+      if (await prisma.examAttempt.count({ where: { examId: id } })) {
+        throw conflict("Bu finale girmiş öğrenciler var, başka kursa taşınamaz. Yeni kurs için yeni bir final sınavı oluşturun.");
+      }
+      await checkExamTarget({ type: "FINAL", courseId: data.courseId }, id);
+    }
     if (existing.type === "PLACEMENT") delete data.courseId;
     const ops = await publishOps(existing, data.published);
     const results = await prisma.$transaction([...ops, prisma.exam.update({ where: { id }, data })]);
@@ -125,7 +132,15 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    await prisma.exam.delete({ where: { id: idParam(req.params.id) } });
+    const id = idParam(req.params.id);
+    const exam = await prisma.exam.findUnique({ where: { id } });
+    if (!exam) throw notFound("Sınav bulunamadı.");
+    if (exam.published) throw conflict("Yayındaki sınav silinemez. Önce yayından kaldırın.");
+    // Sınav silinince öğrencilerin sonuçları da silinir (geçtiği final, seviye sınavı geçmişi). Sonucu olan sınav saklanır.
+    if (await prisma.examAttempt.count({ where: { examId: id, finishedAt: { not: null } } })) {
+      throw conflict("Bu sınavda öğrenci sonuçları var; silinirse sonuçlar da kaybolur. Sınavı yayından kaldırmanız yeterli.");
+    }
+    await prisma.exam.delete({ where: { id } });
     res.status(204).end();
   }),
 );
@@ -174,12 +189,17 @@ router.delete(
   "/:id/questions/:questionId",
   asyncHandler(async (req, res) => {
     const examId = idParam(req.params.id);
-    const exam = await prisma.exam.findUnique({ where: { id: examId }, include: { _count: { select: { questions: true } } } });
-    if (exam?.published && exam._count.questions === 1) {
-      throw badRequest("Yayındaki sınavın son sorusu silinemez. Önce yeni bir soru ekleyin ya da sınavı yayından kaldırın.");
-    }
-    const { count } = await prisma.question.deleteMany({ where: { id: idParam(req.params.questionId), examId } });
-    if (!count) throw notFound("Soru bulunamadı.");
+    const questionId = idParam(req.params.questionId);
+    await prisma.$transaction(async (tx) => {
+      // Sınav satırı kilitlenir: aynı anda gelen iki silme isteği "son soru" kuralını birlikte atlatamasın.
+      const [exam] = await tx.$queryRaw`SELECT id, published FROM "Exam" WHERE id = ${examId} FOR UPDATE`;
+      if (!exam) throw notFound("Sınav bulunamadı.");
+      const { count } = await tx.question.deleteMany({ where: { id: questionId, examId } });
+      if (!count) throw notFound("Soru bulunamadı.");
+      if (exam.published && (await tx.question.count({ where: { examId } })) === 0) {
+        throw badRequest("Yayındaki sınavın son sorusu silinemez. Önce yeni bir soru ekleyin ya da sınavı yayından kaldırın.");
+      }
+    });
     res.status(204).end();
   }),
 );

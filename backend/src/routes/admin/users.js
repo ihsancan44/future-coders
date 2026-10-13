@@ -10,6 +10,17 @@ import { likeText } from "../../lib/validators.js";
 
 const router = Router();
 
+/**
+ * Admin hesapları kilitlenerek sayılır: iki admin aynı anda birbirini öğrenci yapar ya da silerse
+ * hiç admin kalmayabiliyordu. Hedef admin değilse kontrol gerekmez.
+ */
+async function assertAnotherAdmin(tx, targetId) {
+  const admins = await tx.$queryRaw`SELECT id FROM "User" WHERE role = 'ADMIN' ORDER BY id FOR UPDATE`;
+  if (admins.some((a) => a.id === targetId) && admins.length <= 1) {
+    throw badRequest("Sistemde en az bir admin kalmalı.");
+  }
+}
+
 router.get(
   "/users",
   validate(
@@ -108,7 +119,10 @@ router.patch(
     if (id === req.user.id && req.body.role === "STUDENT") throw badRequest("Kendi admin yetkinizi kaldıramazsınız.");
     const data = { ...req.body };
     if (data.school === "") data.school = null;
-    const user = await prisma.user.update({ where: { id }, data });
+    const user = await prisma.$transaction(async (tx) => {
+      if (data.role === "STUDENT") await assertAnotherAdmin(tx, id);
+      return tx.user.update({ where: { id }, data });
+    });
     res.json({ user: publicUser(user) });
   }),
 );
@@ -119,7 +133,10 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = idParam(req.params.id);
     if (id === req.user.id) throw badRequest("Kendi hesabınızı silemezsiniz.");
-    await prisma.user.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await assertAnotherAdmin(tx, id);
+      await tx.user.delete({ where: { id } });
+    });
     res.status(204).end();
   }),
 );

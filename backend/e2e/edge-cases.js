@@ -361,9 +361,7 @@ async function main() {
     await post(`/api/admin/exams/${e.id}/questions`, { token: admin, body: { text: "Soru?", options: [{ text: "A", isCorrect: true }, { text: "B", isCorrect: false }] } });
     await put(`/api/admin/exams/${e.id}`, { token: admin, body: { published: true } });
     const live = await prisma.exam.count({ where: { type: "PLACEMENT", published: true } });
-    // Asıl seviye sınavını geri yayına al (diğer adımlar onu kullanıyor).
-    await del(`/api/admin/exams/${e.id}`, { token: admin });
-    cleanup.exams = cleanup.exams.filter((x) => x !== e.id);
+    // Asıl seviye sınavını geri yayına al (diğer adımlar onu kullanıyor); yayından kalkan geçici sınav sonra silinir.
     await patch(`/api/admin/exams/${placement.id}/publish`, { token: admin, body: { published: true } });
     eq(live, 1, "yayındaki seviye sınavı sayısı");
     return "yayında tek seviye sınavı";
@@ -510,6 +508,160 @@ async function main() {
     const b = await post("/api/auth/register", { body: { ...newStudent("x"), lastName: "Ç".repeat(51) } });
     eq(statuses([a, b]), "400,400", "durumlar");
     return "400, 400";
+  });
+
+
+  // ================= 4. TUR =================
+  setGroup("4. tur: sınav kuralları ve yönetim güvenceleri");
+  const expire = (id) => prisma.examAttempt.update({ where: { id }, data: { startedAt: new Date(Date.now() - 3 * 3600 * 1000) } });
+
+  await step("R1", "Seviye sınavını açıp süreyi dolduran öğrenci, işaretlediği cevaplarla puanlanır ve sınava yeniden giremez", "durum DONE, kaydedilen cevaplarla sınıf, yeniden başlatma 409", async () => {
+    const s = await seedStudent("SureDoldu");
+    const start = await post("/api/exams/placement/start", { token: s.token });
+    status(start, 201);
+    check(start.body.serverNow && start.body.draft, "başlatma yanıtında serverNow/draft yok");
+    const key = await answerKey(start.body.exam.id);
+    status(await put(`/api/exams/attempts/${start.body.attempt.id}/answers`, { token: s.token, body: { answers: answers(key, passCount) } }), 204, "cevap kaydı");
+    await expire(start.body.attempt.id);
+    const st = await get("/api/exams/placement", { token: s.token });
+    eq(st.body.status, "DONE", "durum");
+    eq(st.body.level, "BETA", "sınıf");
+    status(await post("/api/exams/placement/start", { token: s.token }), 409, "yeniden başlatma");
+    return `DONE, BETA (${st.body.attempt.correctCount}/${N}), yeniden başlatma 409`;
+  });
+
+  await step("R2", "Finali açıp hiç cevap vermeden süreyi dolduran öğrenci kalmış sayılır, ilerlemesi sıfırlanır", "final kaldı, ilerleme %0", async () => {
+    const s = await seedStudent("FinalKacti", "ALPHA");
+    await completeAll(s.token, ALL);
+    const start = await post(`/api/exams/courses/${ALL.id}/final/start`, { token: s.token });
+    status(start, 201);
+    await expire(start.body.attempt.id);
+    const detail = (await get(`/api/courses/${ALL.id}`, { token: s.token })).body.course;
+    check(detail.finalExam.attempts.length === 1 && detail.finalExam.attempts[0].passed === false, JSON.stringify(detail.finalExam.attempts));
+    eq(detail.progress.percent, 0, "ilerleme");
+    return "kaldı (%0 puan), ilerleme %0";
+  });
+
+  await step("R3", "Süre bittikten sonra gönderilen cevaplar yerine süre içinde kaydedilenler puanlanır", "200, expired=true, kaydedilen cevaplar", async () => {
+    const s = await seedStudent("GecGonderen");
+    const start = await post("/api/exams/placement/start", { token: s.token });
+    const key = await answerKey(start.body.exam.id);
+    await put(`/api/exams/attempts/${start.body.attempt.id}/answers`, { token: s.token, body: { answers: answers(key, 1) } });
+    await expire(start.body.attempt.id);
+    status(await put(`/api/exams/attempts/${start.body.attempt.id}/answers`, { token: s.token, body: { answers: answers(key, N) } }), 409, "süre sonrası kayıt");
+    const res = await post(`/api/exams/attempts/${start.body.attempt.id}/submit`, { token: s.token, body: { answers: answers(key, N) } });
+    status(res, 200);
+    check(res.body.expired === true && res.body.attempt.correctCount === 1, JSON.stringify(res.body.attempt));
+    return `expired, ${res.body.attempt.correctCount}/${N} doğru → ${res.body.user.level}`;
+  });
+
+  await step("R4", "Öğrenci sınavdayken admin sınavı yayından kaldırırsa cevaplar puanlanmaz", "409 EXAM_CHANGED, sınıf atanmaz", async () => {
+    const s = await seedStudent("Duzeltme", "ALPHA");
+    await completeAll(s.token, await tmpCourse());
+    const start = await post(`/api/exams/courses/${course.id}/final/start`, { token: s.token });
+    status(start, 201);
+    await patch(`/api/admin/exams/${exam.id}/publish`, { token: admin, body: { published: false } });
+    const res = await post(`/api/exams/attempts/${start.body.attempt.id}/submit`, { token: s.token, body: { answers: [] } });
+    await patch(`/api/admin/exams/${exam.id}/publish`, { token: admin, body: { published: true } });
+    status(res, 409);
+    eq(res.body.code, "EXAM_CHANGED", "kod");
+    eq((await get(`/api/courses/${course.id}`, { token: s.token })).body.course.progress.percent, 100, "ilerleme korunur");
+    return "409 EXAM_CHANGED, ilerleme %100 kaldı";
+  });
+
+  await step("R5", "Geçme notu yuvarlamayla aşılamaz", "barajın hemen altı kalır", async () => {
+    // 3 soruluk sınavda 2 doğru = %66,7 → yuvarlanınca 67; baraj 67 iken kalmalı.
+    const c = (await post("/api/admin/courses", { token: admin, body: { title: `Baraj ${run}`, summary: "Geçici", description: "Geçici", category: "Test", level: "ALL" } })).body.course;
+    cleanup.courses.push(c.id);
+    const l = (await post(`/api/admin/courses/${c.id}/lessons`, { token: admin, body: { title: "Ders" } })).body.lesson;
+    await patch(`/api/admin/courses/${c.id}/publish`, { token: admin, body: { published: true } });
+    const e = (await post("/api/admin/exams", { token: admin, body: { type: "FINAL", title: "Baraj finali", courseId: c.id, passingScore: 67 } })).body.exam;
+    for (let i = 0; i < 3; i++) await post(`/api/admin/exams/${e.id}/questions`, { token: admin, body: { text: `S${i}?`, options: [{ text: "D", isCorrect: true }, { text: "Y", isCorrect: false }] } });
+    await patch(`/api/admin/exams/${e.id}/publish`, { token: admin, body: { published: true } });
+    const s = await seedStudent("Baraj", "BETA");
+    await post(`/api/courses/${c.id}/lessons/${l.id}/complete`, { token: s.token });
+    const start = await post(`/api/exams/courses/${c.id}/final/start`, { token: s.token });
+    const key = await answerKey(e.id);
+    const res = await post(`/api/exams/attempts/${start.body.attempt.id}/submit`, { token: s.token, body: { answers: answers(key, 2) } });
+    check(res.body.attempt.score === 67 && res.body.attempt.passed === false, JSON.stringify(res.body.attempt));
+    return "puan %67 (aslında %66,7), kaldı";
+  });
+
+  await step("R6", "Admin hesabı ders ilerlemesi oluşturamaz, popülerlik sayısına karışmaz", "403", async () => {
+    status(await post(`/api/courses/${ALL.id}/lessons/${ALL.lessons[0].id}/complete`, { token: admin }), 403);
+    return "403";
+  });
+
+  await step("R7", "Yayındaki sınav ve sonucu olan sınav silinemez; denemesi olan final başka kursa taşınamaz", "409 / 409 / 409", async () => {
+    const a = await del(`/api/admin/exams/${placement.id}`, { token: admin });
+    const finalId = ALL.finalExam.id;
+    await patch(`/api/admin/exams/${finalId}/publish`, { token: admin, body: { published: false } });
+    const b = await del(`/api/admin/exams/${finalId}`, { token: admin });
+    const c = await put(`/api/admin/exams/${finalId}`, { token: admin, body: { courseId: course.id } });
+    await patch(`/api/admin/exams/${finalId}/publish`, { token: admin, body: { published: true } });
+    eq(`${a.status},${b.status},${c.status}`, "409,409,409", "durumlar");
+    return "409, 409, 409";
+  });
+
+  await step("R8", "Son admin öğrenci yapılamaz ve silinemez (iki admin aynı anda birbirini düşüremez)", "biri 200, diğeri 400; en az bir admin", async () => {
+    const other = await seedStudent("IkinciAdmin");
+    await prisma.user.update({ where: { id: other.user.id }, data: { role: "ADMIN" } });
+    const me = (await get("/api/auth/me", { token: admin })).body.user;
+    const list = await Promise.all([
+      patch(`/api/admin/users/${other.user.id}`, { token: admin, body: { role: "STUDENT" } }),
+      patch(`/api/admin/users/${me.id}`, { token: other.token, body: { role: "STUDENT" } }),
+    ]);
+    const admins = await prisma.user.count({ where: { role: "ADMIN" } });
+    // Asıl admin düşürüldüyse geri al (sonraki adımlar onu kullanıyor).
+    await prisma.user.update({ where: { id: me.id }, data: { role: "ADMIN" } });
+    check(admins >= 1, `${admins} admin kaldı (${sortedStatuses(list)})`);
+    return `${sortedStatuses(list)}, ${admins} admin kaldı`;
+  });
+
+  await step("R9", "Şifre sıfırlama bağlantısı aynı anda iki kez kullanılamaz", "200 + 400", async () => {
+    const s = await seedStudent("IkiSekme");
+    await post("/api/auth/forgot-password", { body: { email: s.email } });
+    const token = await lastResetToken();
+    if (!token) throw new Fail("SERVER_LOG verilmedi ya da logda sıfırlama bağlantısı yok");
+    const body = { token, password: "Sifirla12345", confirmPassword: "Sifirla12345" };
+    const list = await Promise.all([1, 2].map(() => post("/api/auth/reset-password", { body })));
+    eq(sortedStatuses(list), "200,400", "durumlar");
+    return "200, 400";
+  });
+
+  await step("R10", "Çok derin iç içe JSON sunucu hatası vermez; silinmiş kursa ders eklemek 404 döner", "400 / 404", async () => {
+    const deep = await post("/api/auth/login", { raw: "[".repeat(200000) + "]".repeat(200000) });
+    const gone = await post("/api/admin/courses/2147483000/lessons", { token: admin, body: { title: "Ders" } });
+    eq(`${deep.status},${gone.status}`, "400,404", "durumlar");
+    return "400, 404";
+  });
+
+  await step("R11", "'Bana açık' filtresi açık bir sınıf filtresiyle birlikte doğru çalışır", "ALPHA öğrenciye level=BETA&mine=true → 0 kurs", async () => {
+    const s = await seedStudent("Filtre", "ALPHA");
+    const res = await get("/api/courses?level=BETA&mine=true", { token: s.token });
+    eq(res.body.courses.length, 0, "kurs sayısı");
+    return "0 kurs";
+  });
+
+  await step("R12", "Admin yayında olmayan kursun yorumlarını görebilir, öğrenci göremez", "200 / 404", async () => {
+    await patch(`/api/admin/courses/${course.id}/publish`, { token: admin, body: { published: false } });
+    const a = await get(`/api/courses/${course.id}/comments`, { token: admin });
+    const b = await get(`/api/courses/${course.id}/comments`, { token: ayse.token });
+    await patch(`/api/admin/courses/${course.id}/publish`, { token: admin, body: { published: true } });
+    eq(`${a.status},${b.status}`, "200,404", "durumlar");
+    return "200, 404";
+  });
+
+  await step("R13", "Şifremi unuttum: kayıtlı ve kayıtsız adrese cevap süresi yakın (e-posta beklenmiyor)", "fark < 300 ms", async () => {
+    const s = await seedStudent("Zaman");
+    const t0 = Date.now();
+    await post("/api/auth/forgot-password", { body: { email: s.email } });
+    const t1 = Date.now();
+    await post("/api/auth/forgot-password", { body: { email: `yok-${run}@test.dev` } });
+    const t2 = Date.now();
+    const diff = Math.abs(t1 - t0 - (t2 - t1));
+    check(diff < 300, `fark ${diff} ms`);
+    return `kayıtlı ${t1 - t0} ms, kayıtsız ${t2 - t1} ms`;
   });
 
   // ---------- temizlik ----------

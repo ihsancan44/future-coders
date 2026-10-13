@@ -7,6 +7,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   const logout = useCallback(() => {
     tokenStore.clear();
@@ -22,9 +23,24 @@ export function AuthProvider({ children }) {
     api
       .get("/auth/me")
       .then((res) => setUser(res.data.user))
-      .catch(() => tokenStore.clear())
+      // Sadece oturum geçersizse (401) çıkış yapılır; sunucu kapalıyken ya da internet yokken "beni hatırla" silinmez.
+      .catch((err) => {
+        if (err.response?.status === 401) tokenStore.clear();
+        else setOffline(true);
+      })
       .finally(() => setReady(true));
   }, [logout]);
+
+  // Sekmeye dönüldüğünde kullanıcı bilgisi tazelenir: admin sınıfı değiştirdiyse menü ve kurslar hemen güncellenir.
+  useEffect(() => {
+    if (!user) return undefined;
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || !tokenStore.get()) return;
+      api.get("/auth/me").then((res) => setUser(res.data.user)).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, [user]);
 
   const login = useCallback(async ({ email, password, remember }) => {
     const res = await api.post("/auth/login", { email, password });
@@ -41,8 +57,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, login, register, logout, setUser, isAdmin: user?.role === "ADMIN" }),
-    [user, ready, login, register, logout],
+    () => ({ user, ready, offline, login, register, logout, setUser, isAdmin: user?.role === "ADMIN" }),
+    [user, ready, offline, login, register, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

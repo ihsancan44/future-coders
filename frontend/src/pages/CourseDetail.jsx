@@ -33,7 +33,7 @@ LockedNotice.propTypes = { access: PropTypes.object.isRequired };
 
 function Comments({ courseId, canComment, onCountChange }) {
   const { user, isAdmin } = useAuth();
-  const { data, loading, setData } = useApi(`/courses/${courseId}/comments`);
+  const { data, loading, error, reload, setData } = useApi(`/courses/${courseId}/comments`);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -62,6 +62,7 @@ function Comments({ courseId, canComment, onCountChange }) {
   };
 
   if (loading) return <Loading />;
+  if (error) return <ErrorState message={error.message} onRetry={reload} />;
   return (
     <div className="comments">
       {canComment ? (

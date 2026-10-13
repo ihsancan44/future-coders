@@ -189,29 +189,63 @@ describe("sınıf değişikliği", () => {
 describe("yarıda bırakılan sınav", () => {
   const expire = (id) => prisma.examAttempt.update({ where: { id }, data: { startedAt: new Date(Date.now() - 2 * 3600 * 1000) } });
 
-  it("süresi dolmuş seviye sınavı denemesi sayılmaz, öğrenci yeni süreyle başlar", async () => {
-    const exam = await prisma.exam.update({ where: { id: (await createExam()).id }, data: { durationMinutes: 20 } });
+  // ihsan'ın kararı (13.10.2026): süresi dolup gönderilmeyen sınav, süre içinde kaydedilen cevaplarla puanlanır.
+  it("süresi dolmuş seviye sınavı kaydedilen cevaplarla puanlanır, sınıf atanır ve sınava yeniden girilemez", async () => {
+    const exam = await createExam();
+    await prisma.exam.update({ where: { id: exam.id }, data: { durationMinutes: 20 } });
     const { auth, user } = await createUser();
     const first = await api().post("/api/exams/placement/start").set(auth);
+    const draft = await api().put(`/api/exams/attempts/${first.body.attempt.id}/answers`).set(auth).send({ answers: answersFor(exam, 4) });
+    expect(draft.status).toBe(204);
     await expire(first.body.attempt.id);
-    const second = await api().post("/api/exams/placement/start").set(auth);
-    expect(second.status).toBe(201);
-    expect(second.body.attempt.id).not.toBe(first.body.attempt.id);
-    expect(await prisma.examAttempt.count({ where: { userId: user.id } })).toBe(1);
-    expect((await prisma.user.findUnique({ where: { id: user.id } })).level).toBeNull();
-    expect(exam.durationMinutes).toBe(20);
+    const status = await api().get("/api/exams/placement").set(auth);
+    expect(status.body).toMatchObject({ status: "DONE", level: "BETA" });
+    expect(status.body.attempt).toMatchObject({ correctCount: 4, totalCount: 5 });
+    expect((await api().post("/api/exams/placement/start").set(auth)).status).toBe(409);
+    expect((await prisma.user.findUnique({ where: { id: user.id } })).level).toBe("BETA");
   });
 
-  it("süresi dolmuş final denemesi kursu sıfırlamaz", async () => {
+  it("hiç cevap kaydedilmeden süresi dolan final kalmış sayılır ve kurs ilerlemesi sıfırlanır", async () => {
     const { course, exam } = await createCourse({ lessons: 2, withFinal: true });
     await prisma.exam.update({ where: { id: exam.id }, data: { durationMinutes: 20 } });
     const { auth, user } = await createUser({ level: "ALPHA" });
     await completeAll(course, auth);
     const first = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
     await expire(first.body.attempt.id);
-    const second = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
-    expect(second.body.attempt.id).not.toBe(first.body.attempt.id);
-    expect(await prisma.lessonProgress.count({ where: { userId: user.id } })).toBe(2);
+    const detail = await api().get(`/api/courses/${course.id}`).set(auth);
+    expect(detail.body.course.finalExam.attempts).toHaveLength(1);
+    expect(detail.body.course.finalExam.attempts[0]).toMatchObject({ score: 0, passed: false });
+    expect(await prisma.lessonProgress.count({ where: { userId: user.id } })).toBe(0);
+    expect((await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth)).status).toBe(403);
+  });
+
+  it("süresi dolan finale sayfadan dönen öğrenci neden kaldığını öğrenir", async () => {
+    const { course, exam } = await createCourse({ lessons: 1, withFinal: true });
+    await prisma.exam.update({ where: { id: exam.id }, data: { durationMinutes: 20 } });
+    const { auth } = await createUser({ level: "ALPHA" });
+    await completeAll(course, auth);
+    const first = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    await expire(first.body.attempt.id);
+    // Önce kurs sayfası açılsa (deneme orada puanlanır) da, iki kez istense de aynı açıklama gelir.
+    await api().get(`/api/courses/${course.id}`).set(auth);
+    await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    const again = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    expect(again.status).toBe(403);
+    expect(again.body.code).toBe("EXPIRED_FAILED");
+    expect(again.body.error).toMatch(/Süren dolduğu için/);
+  });
+
+  it("süre bittikten sonra gönderilen cevaplar yerine süre içinde kaydedilenler puanlanır", async () => {
+    const exam = await createExam();
+    await prisma.exam.update({ where: { id: exam.id }, data: { durationMinutes: 20 } });
+    const { auth } = await createUser();
+    const start = await api().post("/api/exams/placement/start").set(auth);
+    await api().put(`/api/exams/attempts/${start.body.attempt.id}/answers`).set(auth).send({ answers: answersFor(exam, 1) });
+    await expire(start.body.attempt.id);
+    expect((await api().put(`/api/exams/attempts/${start.body.attempt.id}/answers`).set(auth).send({ answers: answersFor(exam, 5) })).status).toBe(409);
+    const res = await api().post(`/api/exams/attempts/${start.body.attempt.id}/submit`).set(auth).send({ answers: answersFor(exam, 5) });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ expired: true, attempt: { correctCount: 1, passed: false, assignedLevel: "ALPHA" } });
   });
 
   it("süresi dolmamış deneme kaldığı yerden devam eder", async () => {

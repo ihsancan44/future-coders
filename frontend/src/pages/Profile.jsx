@@ -7,7 +7,7 @@ import { api, tokenStore } from "../api/client";
 import PageBanner from "../components/PageBanner";
 import { useAuth } from "../context/AuthContext";
 import { useApi } from "../hooks/useApi";
-import { LEVEL_COLOR, LEVEL_DESC, LEVEL_LABEL, formatDate } from "../utils/format";
+import { LEVEL_COLOR, LEVEL_DESC, LEVEL_LABEL, dayPart, formatDate } from "../utils/format";
 import { applyApiErrors } from "../utils/forms";
 
 export default function Profile() {
@@ -132,7 +132,7 @@ export default function Profile() {
             form={profileForm}
             layout="vertical"
             onFinish={saveProfile}
-            initialValues={{ ...user, birthDate: user.birthDate ? dayjs(user.birthDate) : null }}
+            initialValues={{ ...user, birthDate: user.birthDate ? dayjs(dayPart(user.birthDate)) : null }}
             className="form-grid"
           >
             <Form.Item name="firstName" label="İsim" rules={[{ required: true, min: 2 }]}><Input /></Form.Item>
