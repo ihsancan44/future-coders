@@ -8,6 +8,7 @@ import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { likeText } from "../lib/validators.js";
 import { assertCourseAccess, courseProgress, getAccessibleCourse, progressInfo } from "../services/access.js";
+import { settleExpiredAttempts } from "../services/exams.js";
 
 const router = Router();
 
@@ -65,7 +66,11 @@ router.get(
         { summary: { contains: likeText(search), mode: "insensitive" } },
       ];
     }
-    if (mine === "true" && req.user?.level) where.level = { in: ["ALL", req.user.level] };
+    if (mine === "true" && req.user?.level) {
+      // "Bana açık" filtresi açık bir sınıf filtresiyle birlikte gelirse ikisinin kesişimi döner.
+      const own = ["ALL", req.user.level];
+      where.level = { in: level ? own.filter((l) => l === level) : own };
+    }
 
     const courses = await prisma.course.findMany({
       where,
@@ -74,18 +79,19 @@ router.get(
     });
 
     // Popülerlik: kursta en az bir ders tamamlamış farklı öğrenci sayısı + yorum sayısı.
-    const students = await prisma.lessonProgress.findMany({
-      where: { lesson: { courseId: { in: courses.map((c) => c.id) } } },
-      select: { userId: true, lesson: { select: { courseId: true } } },
-      distinct: ["userId", "lessonId"],
-    });
-    const perCourse = new Map();
-    for (const s of students) {
-      const set = perCourse.get(s.lesson.courseId) || new Set();
-      set.add(s.userId);
-      perCourse.set(s.lesson.courseId, set);
-    }
-    for (const c of courses) c._studentCount = perCourse.get(c.id)?.size ?? 0;
+    // Veritabanında sayılır; tüm ilerleme kayıtlarını belleğe çekmek öğrenci sayısı arttıkça yavaşlıyordu.
+    const ids = courses.map((c) => c.id);
+    const counts = ids.length
+      ? await prisma.$queryRaw`
+          SELECT l."courseId" AS id, COUNT(DISTINCT lp."userId")::int AS n
+          FROM "LessonProgress" lp
+          JOIN "Lesson" l ON l.id = lp."lessonId"
+          JOIN "User" u ON u.id = lp."userId"
+          WHERE l."courseId" = ANY(${ids}) AND u.role = 'STUDENT'
+          GROUP BY l."courseId"`
+      : [];
+    const perCourse = new Map(counts.map((r) => [r.id, r.n]));
+    for (const c of courses) c._studentCount = perCourse.get(c.id) ?? 0;
 
     if (req.user && req.user.role !== "ADMIN") {
       const [mineDone, passed] = await Promise.all([
@@ -142,6 +148,10 @@ router.get(
     if (!course || (!course.published && req.user?.role !== "ADMIN")) throw notFound("Kurs bulunamadı.");
 
     const access = accessFor(req.user, course);
+    // Süresi dolmuş yarım final varsa önce puanlanır (kaldıysa ilerleme sıfırlanır), sayfa güncel durumu gösterir.
+    if (req.user && access.canAccess && course.finalExam && req.user.role !== "ADMIN") {
+      await settleExpiredAttempts(req.user.id, course.finalExam.id);
+    }
     let completedIds = [];
     let progress = null;
     let finalAttempts = [];
@@ -199,6 +209,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
     const lessonId = idParam(req.params.lessonId);
+    if (req.user.role === "ADMIN") throw forbidden("Ders ilerlemesi öğrenciler içindir.");
     await getAccessibleCourse(req.user, courseId);
     const lesson = await prisma.lesson.findFirst({ where: { id: lessonId, courseId } });
     if (!lesson) throw notFound("Ders bulunamadı.");
@@ -231,14 +242,19 @@ function publicComment(c) {
 
 router.get(
   "/:id/comments",
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const courseId = idParam(req.params.id);
-    const course = await prisma.course.findFirst({ where: { id: courseId, published: true } });
+    // Admin yayında olmayan kursu önizlerken yorumları da görür.
+    const course = await prisma.course.findFirst({
+      where: { id: courseId, ...(req.user?.role === "ADMIN" ? {} : { published: true }) },
+    });
     if (!course) throw notFound("Kurs bulunamadı.");
     const comments = await prisma.comment.findMany({
       where: { courseId },
       orderBy: { createdAt: "desc" },
-      include: { user: true },
+      take: 200,
+      include: { user: { select: { id: true, firstName: true, lastName: true, role: true } } },
     });
     res.json({ comments: comments.map(publicComment) });
   }),

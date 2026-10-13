@@ -22,6 +22,21 @@ export default function FinalExam() {
     };
   }, [courseId]);
 
+  if (error?.code === "FINAL_PASSED") {
+    return (
+      <section className="section section--narrow">
+        <Result
+          status="success"
+          title="Bu kursun final testini geçtin"
+          subTitle="Yazılımda ilerlemek istediğin alanı seçip sana özel yol haritanı görebilirsin."
+          extra={[
+            <Link key="career" to="/career" className="btn btn--primary">Alanını seç</Link>,
+            <Link key="course" to={`/courses/${courseId}`} className="btn btn--ghost">Kursa dön</Link>,
+          ]}
+        />
+      </section>
+    );
+  }
   if (error) {
     return (
       <section className="section section--narrow">
@@ -63,7 +78,7 @@ export default function FinalExam() {
   if (!session) return <Loading tip="Sınav hazırlanıyor..." />;
   return (
     <section className="section section--narrow">
-      <ExamRunner exam={session.exam} attempt={session.attempt} onFinished={setResult} />
+      <ExamRunner exam={session.exam} attempt={session.attempt} draft={session.draft} serverNow={session.serverNow} onFinished={setResult} />
     </section>
   );
 }

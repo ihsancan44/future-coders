@@ -11,6 +11,8 @@ import {
   getFinalExamForCourse,
   getPlacementExam,
   publicExam,
+  saveDraft,
+  settleExpiredAttempts,
   startAttempt,
   submitAttempt,
 } from "../services/exams.js";
@@ -22,6 +24,11 @@ router.use(requireAuth);
 router.get(
   "/placement",
   asyncHandler(async (req, res) => {
+    // Süresi dolmuş yarım seviye sınavı burada puanlanır, öğrenci sonucunu hemen görür.
+    const placement = await getPlacementExam();
+    if (!req.user.level && placement && (await settleExpiredAttempts(req.user.id, placement.id))) {
+      req.user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    }
     if (req.user.level) {
       const last = await prisma.examAttempt.findFirst({
         where: { userId: req.user.id, exam: { type: "PLACEMENT" }, finishedAt: { not: null } },
@@ -48,7 +55,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const exam = await getPlacementExam();
     const attempt = await startAttempt(req.user, exam);
-    res.status(201).json({ attempt: attemptSummary(attempt), exam: publicExam(exam) });
+    res.status(201).json(startPayload(attempt, exam));
   }),
 );
 
@@ -57,9 +64,20 @@ router.post(
   asyncHandler(async (req, res) => {
     const exam = await getFinalExamForCourse(req.user, idParam(req.params.courseId));
     const attempt = await startAttempt(req.user, exam);
-    res.status(201).json({ attempt: attemptSummary(attempt), exam: publicExam(exam) });
+    res.status(201).json(startPayload(attempt, exam));
   }),
 );
+
+/**
+ * Başlatma yanıtı: sunucu saati (tarayıcı saati yanlışsa geri sayım yine doğru olsun) ve
+ * sınav sırasında kaydedilmiş cevaplar (başka cihazdan devam eden öğrenci için).
+ */
+const startPayload = (attempt, exam) => ({
+  attempt: attemptSummary(attempt),
+  exam: publicExam(exam),
+  draft: attempt.draftAnswers ?? {},
+  serverNow: new Date().toISOString(),
+});
 
 const submitSchema = z.object({
   answers: z
@@ -71,9 +89,19 @@ router.post(
   "/attempts/:id/submit",
   validate(submitSchema),
   asyncHandler(async (req, res) => {
-    const { attempt, courseReset } = await submitAttempt(req.user, idParam(req.params.id), req.body.answers);
+    const { attempt, courseReset, expired } = await submitAttempt(req.user, idParam(req.params.id), req.body.answers);
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    res.json({ attempt: attemptSummary(attempt), courseReset, user: publicUser(user) });
+    res.json({ attempt: attemptSummary(attempt), courseReset, expired, user: publicUser(user) });
+  }),
+);
+
+/** Sınav sürerken cevaplar kaydedilir; süre dolup gönderilmezse deneme bunlarla puanlanır. */
+router.put(
+  "/attempts/:id/answers",
+  validate(submitSchema),
+  asyncHandler(async (req, res) => {
+    await saveDraft(req.user, idParam(req.params.id), req.body.answers);
+    res.status(204).end();
   }),
 );
 

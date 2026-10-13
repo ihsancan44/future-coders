@@ -15,6 +15,11 @@ export function formatDuration(minutes = 0) {
 
 const dateFmt = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric" });
 export const formatDate = (value) => (value ? dateFmt.format(new Date(value)) : "");
+/** Sadece gün bilgisi olan tarihler (doğum tarihi) saat dilimine göre bir gün kaymasın diye UTC'de gösterilir. */
+const dayFmt = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+export const formatDay = (value) => (value ? dayFmt.format(new Date(value)) : "");
+/** "2008-05-10T00:00:00.000Z" → "2008-05-10" (tarih seçicide yerel saatle bir gün geri gitmesin). */
+export const dayPart = (value) => (value ? String(value).slice(0, 10) : null);
 
 /** Sunucuya yüklenmiş ya da doğrudan video dosyasına giden adres mi? (<video> ile oynatılır) */
 export function isVideoFile(url) {
@@ -37,11 +42,16 @@ export function embedUrl(url) {
     if (u.hostname.includes("youtu.be")) id = u.pathname.slice(1);
     else if (u.hostname.includes("youtube.com")) {
       if (u.pathname.startsWith("/embed/")) id = u.pathname.split("/")[2];
-      else if (u.pathname.startsWith("/shorts/")) id = u.pathname.split("/")[2];
+      else if (u.pathname.startsWith("/shorts/") || u.pathname.startsWith("/live/")) id = u.pathname.split("/")[2];
       else id = u.searchParams.get("v");
     } else if (u.hostname.includes("vimeo.com")) {
-      const vid = u.pathname.split("/").filter(Boolean).pop();
-      return `https://player.vimeo.com/video/${vid}`;
+      // vimeo.com/123456, vimeo.com/123456/abcdef (liste dışı paylaşım: ikinci parça gizli anahtar),
+      // player.vimeo.com/video/123456
+      const parts = u.pathname.split("/").filter(Boolean);
+      const i = parts.findIndex((p) => /^\d+$/.test(p));
+      if (i < 0) return null;
+      const hash = parts[i + 1] && /^[0-9a-f]+$/i.test(parts[i + 1]) ? parts[i + 1] : u.searchParams.get("h");
+      return `https://player.vimeo.com/video/${parts[i]}${hash ? `?h=${hash}` : ""}`;
     }
     return id ? `https://www.youtube-nocookie.com/embed/${id}` : url;
   } catch {

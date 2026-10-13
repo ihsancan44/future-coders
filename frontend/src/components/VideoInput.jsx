@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { Button, Input, Progress, Segmented, Upload } from "antd";
 import { message } from "../utils/feedback";
@@ -16,6 +16,10 @@ export default function VideoInput({ value, onChange }) {
   const uploaded = Boolean(value) && value.startsWith("/uploads/");
   const [mode, setMode] = useState(value && !uploaded ? "link" : "file");
   const [percent, setPercent] = useState(null);
+  // Düzenleme penceresi değeri sonradan doldurur: kayıtlı bir bağlantı varsa "bağlantı" sekmesi açılsın.
+  useEffect(() => {
+    if (value && !value.startsWith("/uploads/")) setMode("link");
+  }, [value]);
 
   const customRequest = async ({ file, onSuccess, onError }) => {
     if (file.size > VIDEO_MAX_MB * 1024 * 1024) {

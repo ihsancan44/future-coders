@@ -22,6 +22,9 @@ export function publicExam(exam) {
   };
 }
 
+/** Süre bittikten sonra gelen gönderim için tanınan pay (otomatik gönderim ve ağ gecikmesi). */
+export const SUBMIT_GRACE_MS = 2 * 60_000;
+
 const withQuestions = {
   questions: { orderBy: { order: "asc" }, include: { options: { orderBy: { id: "asc" } } } },
 };
@@ -63,6 +66,8 @@ export function attemptSummary(attempt) {
 /** Sınavı başlatır; yarım kalan deneme varsa onu döndürür. */
 export async function startAttempt(user, exam) {
   if (user.role === "ADMIN") throw forbidden("Admin hesabıyla sınava girilemez.");
+  // Süresi dolmuş yarım deneme önce kaydedilmiş cevaplarla puanlanır; sonuç (sınıf, ilerleme) aşağıdaki kontrolleri etkiler.
+  if (await settleExpiredAttempts(user.id, exam.id)) user = await prisma.user.findUnique({ where: { id: user.id } });
 
   if (exam.type === "PLACEMENT") {
     // Sınıfı olan öğrenci sınavı tamamlamıştır. Admin sınıfı kaldırırsa öğrenci sınava yeniden girebilir.
@@ -72,18 +77,16 @@ export async function startAttempt(user, exam) {
     if (passed) throw conflict("Bu kursun final testini zaten geçtin.", "FINAL_PASSED");
     const progress = await courseProgress(user.id, exam.courseId);
     if (!progress.finished) {
+      if (progress.completed === 0 && (await lastFinalTimedOut(user.id, exam))) {
+        throw forbidden(
+          "Süren dolduğu için sınav, süre içinde işaretlediğin cevaplarla puanlandı ve geçme notuna ulaşamadın. Kurs ilerlemen sıfırlandı: adımları tamamlayıp teste tekrar girebilirsin.",
+          "EXPIRED_FAILED",
+        );
+      }
       throw forbidden("Final sınavı, kursun tüm adımlarını tamamladığınızda açılır.", "COURSE_NOT_FINISHED");
     }
   }
 
-  // Süresi dolmuş ve hiç gönderilmemiş deneme sayılmaz: cevaplar sunucuya ulaşmadığı için öğrenci
-  // sınavı yeni bir süreyle baştan çözer (eskiden sayfa açılır açılmaz 0 puanla gönderiliyordu).
-  if (exam.durationMinutes) {
-    const cutoff = new Date(Date.now() - exam.durationMinutes * 60_000);
-    await prisma.examAttempt.deleteMany({
-      where: { userId: user.id, examId: exam.id, finishedAt: null, startedAt: { lt: cutoff } },
-    });
-  }
   const findOpen = () => prisma.examAttempt.findFirst({ where: { userId: user.id, examId: exam.id, finishedAt: null } });
   const open = await findOpen();
   if (open) return open;
@@ -96,19 +99,90 @@ export async function startAttempt(user, exam) {
   }
 }
 
+/** Son final denemesi süre dolduktan sonra (kaydedilen cevaplarla) puanlanıp kaldıysa true. */
+async function lastFinalTimedOut(userId, exam) {
+  const last = await prisma.examAttempt.findFirst({ where: { userId, examId: exam.id, finishedAt: { not: null } }, orderBy: { finishedAt: "desc" } });
+  return Boolean(last && !last.passed && exam.durationMinutes && last.finishedAt.getTime() > deadlineOf(last, exam));
+}
+
+const deadlineOf = (attempt, exam) =>
+  exam.durationMinutes ? attempt.startedAt.getTime() + exam.durationMinutes * 60_000 + SUBMIT_GRACE_MS : null;
+const isExpired = (attempt, exam) => {
+  const deadline = deadlineOf(attempt, exam);
+  return deadline !== null && Date.now() > deadline;
+};
+const draftToList = (draft) =>
+  Object.entries(draft && typeof draft === "object" ? draft : {}).map(([questionId, optionId]) => ({
+    questionId: Number(questionId),
+    optionId: optionId == null ? null : Number(optionId),
+  }));
+
+const loadAttempt = (id) => prisma.examAttempt.findUnique({ where: { id }, include: { exam: { include: withQuestions } } });
+
+/**
+ * Süresi dolup gönderilmemiş denemeleri, sınav sırasında kaydedilen cevaplarla puanlar (ihsan'ın kararı, 13.10.2026:
+ * süreyi doldurup sınava yeniden girerek cevaplara bakma yolu kapansın). Puanlanamayan (sınavı değişmiş, erişimi kalmamış)
+ * deneme silinir. examId verilmezse öğrencinin tüm sınavlarına bakılır. Puanlanan deneme sayısını döndürür.
+ */
+export async function settleExpiredAttempts(userId, examId) {
+  const open = await prisma.examAttempt.findMany({
+    where: { userId, finishedAt: null, ...(examId ? { examId } : {}) },
+    include: { exam: { include: withQuestions } },
+  });
+  let settled = 0;
+  for (const attempt of open.filter((a) => isExpired(a, a.exam))) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    try {
+      await finishAttempt(user, attempt, draftToList(attempt.draftAnswers));
+      settled++;
+    } catch (err) {
+      if (![400, 403, 404, 409].includes(err.status)) throw err;
+      await prisma.examAttempt.deleteMany({ where: { id: attempt.id, finishedAt: null } });
+    }
+  }
+  return settled;
+}
+
+/** Sınav sürerken işaretlenen cevapları kaydeder; süre dolarsa deneme bunlarla puanlanır. */
+export async function saveDraft(user, attemptId, answers) {
+  const attempt = await loadAttempt(attemptId);
+  if (!attempt || attempt.userId !== user.id) throw notFound("Sınav denemesi bulunamadı.");
+  if (attempt.finishedAt) throw conflict("Bu sınav zaten tamamlandı.", "ATTEMPT_FINISHED");
+  if (isExpired(attempt, attempt.exam)) throw conflict("Sınav süresi doldu.", "ATTEMPT_EXPIRED");
+  // Yalnızca bu sınavın soru/şık çiftleri saklanır; başka sınavdan bir kimlik taslağı puanlanamaz hale getirmesin.
+  const valid = new Map(attempt.exam.questions.map((q) => [q.id, new Set(q.options.map((o) => o.id))]));
+  const draft = {};
+  for (const { questionId, optionId } of answers) if (optionId != null && valid.get(questionId)?.has(optionId)) draft[questionId] = optionId;
+  await prisma.examAttempt.updateMany({ where: { id: attempt.id, finishedAt: null }, data: { draftAnswers: draft } });
+}
+
 /**
  * Cevapları puanlar. Puan = doğru / toplam soru (yüzde, yuvarlanmış).
  * Final testinde kalan öğrencinin kurs ilerlemesi silinir: kursa baştan başlar.
+ * Süre (ve kısa gecikme payı) dolduktan sonra gelen gönderimde, gönderilen cevaplar yerine süre içinde kaydedilenler puanlanır.
  */
 export async function submitAttempt(user, attemptId, answers) {
-  const attempt = await prisma.examAttempt.findUnique({
-    where: { id: attemptId },
-    include: { exam: { include: withQuestions } },
-  });
+  const attempt = await loadAttempt(attemptId);
   if (!attempt || attempt.userId !== user.id) throw notFound("Sınav denemesi bulunamadı.");
   if (attempt.finishedAt) throw conflict("Bu sınav zaten tamamlandı.", "ATTEMPT_FINISHED");
+  const expired = isExpired(attempt, attempt.exam);
+  const result = await finishAttempt(user, attempt, expired ? draftToList(attempt.draftAnswers) : answers);
+  return { ...result, expired };
+}
+
+async function finishAttempt(user, attempt, answers) {
   if (attempt.exam.type === "PLACEMENT" && user.level) {
     throw conflict("Seviye sınavını zaten tamamladınız.", "PLACEMENT_DONE");
+  }
+  // Sınav sırasında admin sınavı yayından kaldırdıysa (ör. cevap anahtarını düzeltmek için), tüm sorularını sildiyse
+  // ya da yeni bir seviye sınavı yayınladıysa bu deneme puanlanmaz; öğrenci güncel sınava baştan girer.
+  const stale =
+    !attempt.exam.published ||
+    attempt.exam.questions.length === 0 ||
+    (attempt.exam.type === "PLACEMENT" && (await getPlacementExam().catch(() => null))?.id !== attempt.exam.id);
+  if (stale) {
+    await prisma.examAttempt.deleteMany({ where: { id: attempt.id, finishedAt: null } });
+    throw conflict("Sen sınavdayken sınav güncellendi, bu yüzden cevapların kaydedilmedi. Sınava baştan girebilirsin.", "EXAM_CHANGED");
   }
   // Sınav sırasında kursun sınıfı ya da öğrencinin sınıfı değiştiyse final sonucu kaydedilmez.
   if (attempt.exam.type === "FINAL") await getAccessibleCourse(user, attempt.exam.courseId);
@@ -145,7 +219,8 @@ export async function submitAttempt(user, attemptId, answers) {
   }
   const total = questions.length;
   const score = total ? Math.round((correct / total) * 100) : 0;
-  const passed = score >= attempt.exam.passingScore;
+  // Geçme kararı yuvarlanmamış orana göre verilir (ör. 23 sorudan 16 doğru = %69,6, %70 barajını geçmez).
+  const passed = total > 0 && correct * 100 >= attempt.exam.passingScore * total;
   const assignedLevel = attempt.exam.type === "PLACEMENT" ? (passed ? "BETA" : "ALPHA") : null;
   const courseReset = attempt.exam.type === "FINAL" && !passed;
 
@@ -159,7 +234,11 @@ export async function submitAttempt(user, attemptId, answers) {
     await tx.attemptAnswer.createMany({
       data: questions.map((q) => ({ attemptId: attempt.id, questionId: q.id, optionId: chosen.get(q.id) ?? null })),
     });
-    if (assignedLevel) await tx.user.update({ where: { id: user.id }, data: { level: assignedLevel } });
+    if (assignedLevel) {
+      // İki seviye sınavı aynı anda gönderilirse sadece ilki sınıf atar.
+      const set = await tx.user.updateMany({ where: { id: user.id, level: null }, data: { level: assignedLevel } });
+      if (!set.count) throw conflict("Seviye sınavını zaten tamamladınız.", "PLACEMENT_DONE");
+    }
     if (courseReset) {
       await tx.lessonProgress.deleteMany({ where: { userId: user.id, lesson: { courseId: attempt.exam.courseId } } });
     }

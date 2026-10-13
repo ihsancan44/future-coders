@@ -165,6 +165,8 @@ model ExamAttempt {
   totalCount    Int?
   passed        Boolean?
   assignedLevel Level?
+  /// Sınav sürerken tarayıcının kaydettiği cevaplar ({ soruId: şıkId }); süre dolunca deneme bunlarla puanlanır.
+  draftAnswers  Json?
 
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)

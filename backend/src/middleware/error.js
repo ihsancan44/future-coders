@@ -2,13 +2,25 @@ import { Prisma } from "@prisma/client";
 import multer from "multer";
 import { HttpError } from "../lib/errors.js";
 
-const hasNullChar = (v) =>
-  typeof v === "string" ? v.includes("\u0000") : v && typeof v === "object" ? Object.values(v).some(hasNullChar) : false;
+/** Gövdeyi özyinelemesiz tarar; çok derin iç içe JSON (ör. 400 bin "[") yığını taşırıp 500 vermesin. */
+function hasNullChar(root) {
+  const stack = [[root, 0]];
+  while (stack.length) {
+    const [v, depth] = stack.pop();
+    if (typeof v === "string") {
+      if (v.includes("\u0000")) return true;
+    } else if (v && typeof v === "object") {
+      if (depth > 32) return true;
+      for (const x of Object.values(v)) stack.push([x, depth + 1]);
+    }
+  }
+  return false;
+}
 
 /** PostgreSQL metinlerde NUL (\u0000) karakterini kabul etmez; böyle istekler veritabanına gitmeden 400 alır. */
 export function rejectNullChars(req, res, next) {
   if (hasNullChar(req.body) || hasNullChar(req.query)) {
-    return res.status(400).json({ error: "Gönderilen metin geçersiz bir karakter içeriyor." });
+    return res.status(400).json({ error: "Gönderilen bilgi geçersiz bir karakter ya da çok derin bir yapı içeriyor." });
   }
   next();
 }
@@ -28,6 +40,8 @@ export function errorHandler(err, _req, res, _next) {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2025") return res.status(404).json({ error: "Kayıt bulunamadı." });
     if (err.code === "P2002") return res.status(409).json({ error: "Bu kayıt zaten mevcut." });
+    // Bağlı kayıt yok (ör. o sırada silinmiş kursa ders eklemek).
+    if (err.code === "P2003") return res.status(404).json({ error: "İlgili kayıt bulunamadı." });
   }
   if (err instanceof Prisma.PrismaClientValidationError) {
     // Doğrulamadan kaçan hatalı değer (ör. 32 bit sınırını aşan sayı): sunucu hatası değil, geçersiz istek.

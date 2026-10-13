@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { embedUrl, formatDuration, isVideoFile, paragraphs } from "./format";
+import { dayPart, embedUrl, formatDay, formatDuration, isVideoFile, paragraphs } from "./format";
 
 describe("embedUrl", () => {
   it("YouTube bağlantılarını gömülebilir adrese çevirir", () => {
@@ -44,5 +44,22 @@ describe("isVideoFile", () => {
     expect(isVideoFile("https://cdn.site.com/ders.webm?x=1")).toBe(true);
     expect(isVideoFile("https://youtu.be/abc")).toBe(false);
     expect(isVideoFile(null)).toBe(false);
+  });
+});
+
+describe("embedUrl (Vimeo ve YouTube canlı yayın)", () => {
+  it("liste dışı Vimeo bağlantısını gizli anahtarla gömer", () => {
+    expect(embedUrl("https://vimeo.com/123456/abcdef0123")).toBe("https://player.vimeo.com/video/123456?h=abcdef0123");
+    expect(embedUrl("https://player.vimeo.com/video/123456")).toBe("https://player.vimeo.com/video/123456");
+  });
+  it("YouTube /live/ bağlantısını gömer", () => {
+    expect(embedUrl("https://www.youtube.com/live/CgkZ7MvWUAA")).toBe("https://www.youtube-nocookie.com/embed/CgkZ7MvWUAA");
+  });
+});
+
+describe("formatDay / dayPart", () => {
+  it("doğum tarihini saat diliminden bağımsız gösterir", () => {
+    expect(dayPart("2008-05-10T00:00:00.000Z")).toBe("2008-05-10");
+    expect(formatDay("2008-05-10T00:00:00.000Z")).toBe("10 Mayıs 2008");
   });
 });
