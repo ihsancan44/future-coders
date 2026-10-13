@@ -77,7 +77,7 @@ export default function AdminUsers() {
         dataSource={data?.users || []}
         scroll={{ x: true }}
         columns={[
-          { title: "Ad soyad", render: (_, u) => <a onClick={() => setSelected(u.id)}>{u.firstName} {u.lastName}</a> },
+          { title: "Ad soyad", render: (_, u) => <button type="button" className="link-btn" onClick={() => setSelected(u.id)}>{u.firstName} {u.lastName}</button> },
           { title: "E-posta", dataIndex: "email" },
           { title: "Okul", dataIndex: "school", render: (s) => s || "—" },
           { title: "Kayıt", dataIndex: "createdAt", render: formatDate },
@@ -115,15 +115,15 @@ export default function AdminUsers() {
             title: "",
             render: (_, u) => (
               <div className="row-actions">
-                <a onClick={() => setSelected(u.id)}>Detay</a>
+                <button type="button" className="link-btn" onClick={() => setSelected(u.id)}>Detay</button>
                 {u.role === "STUDENT" && u.level && (
                   <Popconfirm title="Seviye sınavı sıfırlansın mı?" description="Öğrencinin sınıfı silinir ve sınava yeniden girer." okText="Sıfırla" cancelText="Vazgeç" onConfirm={() => resetPlacement(u.id)}>
-                    <a>Sınavı sıfırla</a>
+                    <button type="button" className="link-btn">Sınavı sıfırla</button>
                   </Popconfirm>
                 )}
                 {u.id !== me.id && (
                   <Popconfirm title="Üye silinsin mi?" description="Hesabı, ilerlemesi, sınav sonuçları ve yorumları kalıcı olarak silinir." okText="Sil" cancelText="Vazgeç" okButtonProps={{ danger: true }} onConfirm={() => remove(u.id)}>
-                    <a className="danger-link">Sil</a>
+                    <button type="button" className="link-btn danger-link">Sil</button>
                   </Popconfirm>
                 )}
               </div>

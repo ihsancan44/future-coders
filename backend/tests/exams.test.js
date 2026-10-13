@@ -185,3 +185,40 @@ describe("sınıf değişikliği", () => {
     expect(res.body.code).toBe("LEVEL_MISMATCH");
   });
 });
+
+describe("yarıda bırakılan sınav", () => {
+  const expire = (id) => prisma.examAttempt.update({ where: { id }, data: { startedAt: new Date(Date.now() - 2 * 3600 * 1000) } });
+
+  it("süresi dolmuş seviye sınavı denemesi sayılmaz, öğrenci yeni süreyle başlar", async () => {
+    const exam = await prisma.exam.update({ where: { id: (await createExam()).id }, data: { durationMinutes: 20 } });
+    const { auth, user } = await createUser();
+    const first = await api().post("/api/exams/placement/start").set(auth);
+    await expire(first.body.attempt.id);
+    const second = await api().post("/api/exams/placement/start").set(auth);
+    expect(second.status).toBe(201);
+    expect(second.body.attempt.id).not.toBe(first.body.attempt.id);
+    expect(await prisma.examAttempt.count({ where: { userId: user.id } })).toBe(1);
+    expect((await prisma.user.findUnique({ where: { id: user.id } })).level).toBeNull();
+    expect(exam.durationMinutes).toBe(20);
+  });
+
+  it("süresi dolmuş final denemesi kursu sıfırlamaz", async () => {
+    const { course, exam } = await createCourse({ lessons: 2, withFinal: true });
+    await prisma.exam.update({ where: { id: exam.id }, data: { durationMinutes: 20 } });
+    const { auth, user } = await createUser({ level: "ALPHA" });
+    await completeAll(course, auth);
+    const first = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    await expire(first.body.attempt.id);
+    const second = await api().post(`/api/exams/courses/${course.id}/final/start`).set(auth);
+    expect(second.body.attempt.id).not.toBe(first.body.attempt.id);
+    expect(await prisma.lessonProgress.count({ where: { userId: user.id } })).toBe(2);
+  });
+
+  it("süresi dolmamış deneme kaldığı yerden devam eder", async () => {
+    await prisma.exam.update({ where: { id: (await createExam()).id }, data: { durationMinutes: 20 } });
+    const { auth } = await createUser();
+    const first = await api().post("/api/exams/placement/start").set(auth);
+    const again = await api().post("/api/exams/placement/start").set(auth);
+    expect(again.body.attempt.id).toBe(first.body.attempt.id);
+  });
+});

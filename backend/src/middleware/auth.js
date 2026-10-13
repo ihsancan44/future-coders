@@ -22,14 +22,18 @@ async function loadUser(req) {
   return user;
 }
 
-/** Token varsa kullanıcıyı yükler, yoksa misafir olarak devam eder. */
+/**
+ * Token varsa kullanıcıyı yükler, yoksa misafir olarak devam eder.
+ * Süresi dolmuş veya geçersiz token da misafir sayılır; herkese açık sayfalar bu yüzden hata vermez.
+ */
 export async function optionalAuth(req, _res, next) {
   try {
     req.user = await loadUser(req);
-    next();
   } catch (err) {
-    next(err);
+    if (err.status !== 401) return next(err);
+    req.user = null;
   }
+  next();
 }
 
 export async function requireAuth(req, _res, next) {
