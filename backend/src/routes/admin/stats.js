@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { asyncHandler } from "../../lib/errors.js";
+import { CAREERS } from "../../data/careers.js";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.get(
       courses,
       placementAttempts,
       recentUsers,
+      byCareer,
     ] = await Promise.all([
       prisma.course.count(),
       prisma.course.count({ where: { published: true } }),
@@ -55,6 +57,7 @@ router.get(
         where: { ...student, createdAt: { gte: new Date(Date.now() - 30 * 24 * 3600 * 1000) } },
         select: { createdAt: true },
       }),
+      prisma.user.groupBy({ by: ["careerField"], where: { ...student, careerField: { not: null } }, _count: { _all: true } }),
     ]);
 
     const scoreBuckets = [0, 20, 40, 60, 80].map((from) => ({
@@ -81,6 +84,11 @@ router.get(
         students: studentTotal,
       },
       levels: { ALPHA: alpha, BETA: beta, NONE: studentTotal - alpha - beta },
+      careers: CAREERS.map((c) => ({
+        key: c.key,
+        title: c.title,
+        count: byCareer.find((b) => b.careerField === c.key)?._count._all ?? 0,
+      })),
       schools: bySchool.map((s) => ({ school: s.school, count: s._count._all })),
       placementScores: scoreBuckets,
       registrations: [...days].map(([date, count]) => ({ date, count })),

@@ -69,6 +69,8 @@ export async function startAttempt(user, exam) {
     });
     if (done || user.level) throw conflict("Seviye sınavını zaten tamamladınız.", "PLACEMENT_DONE");
   } else {
+    const passed = await prisma.examAttempt.findFirst({ where: { userId: user.id, examId: exam.id, passed: true } });
+    if (passed) throw conflict("Bu kursun final testini zaten geçtin.", "FINAL_PASSED");
     const progress = await courseProgress(user.id, exam.courseId);
     if (!progress.finished) {
       throw forbidden("Final sınavı, kursun tüm adımlarını tamamladığınızda açılır.", "COURSE_NOT_FINISHED");
@@ -82,7 +84,10 @@ export async function startAttempt(user, exam) {
   return prisma.examAttempt.create({ data: { userId: user.id, examId: exam.id } });
 }
 
-/** Cevapları puanlar. Puan = doğru / toplam soru (yüzde, yuvarlanmış). */
+/**
+ * Cevapları puanlar. Puan = doğru / toplam soru (yüzde, yuvarlanmış).
+ * Final testinde kalan öğrencinin kurs ilerlemesi silinir: kursa baştan başlar.
+ */
 export async function submitAttempt(user, attemptId, answers) {
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
@@ -112,6 +117,7 @@ export async function submitAttempt(user, attemptId, answers) {
   const score = total ? Math.round((correct / total) * 100) : 0;
   const passed = score >= attempt.exam.passingScore;
   const assignedLevel = attempt.exam.type === "PLACEMENT" ? (passed ? "BETA" : "ALPHA") : null;
+  const courseReset = attempt.exam.type === "FINAL" && !passed;
 
   const [finished] = await prisma.$transaction([
     prisma.examAttempt.update({
@@ -131,6 +137,9 @@ export async function submitAttempt(user, attemptId, answers) {
     ...(assignedLevel
       ? [prisma.user.update({ where: { id: user.id }, data: { level: assignedLevel } })]
       : []),
+    ...(courseReset
+      ? [prisma.lessonProgress.deleteMany({ where: { userId: user.id, lesson: { courseId: attempt.exam.courseId } } })]
+      : []),
   ]);
-  return finished;
+  return { attempt: finished, courseReset };
 }

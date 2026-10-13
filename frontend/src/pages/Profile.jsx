@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, Table, Tag } from "antd";
+import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, Progress, Table, Tag } from "antd";
 import { message } from "../utils/feedback";
 import dayjs from "dayjs";
 import { api } from "../api/client";
@@ -13,6 +13,10 @@ import { applyApiErrors } from "../utils/forms";
 export default function Profile() {
   const { user, setUser, isAdmin } = useAuth();
   const attempts = useApi(isAdmin ? null : "/exams/my-attempts");
+  const courses = useApi(isAdmin || !user.level ? null : "/courses", { mine: "true" });
+  const career = useApi(isAdmin ? null : "/career");
+  const started = (courses.data?.courses || []).filter((c) => c.finalPassed || c.progress?.completed > 0);
+  const field = career.data?.fields.find((f) => f.key === user.careerField);
   const [profileForm] = Form.useForm();
   const [pwForm] = Form.useForm();
   const [saving, setSaving] = useState(false);
@@ -60,6 +64,42 @@ export default function Profile() {
             <Alert type="info" showIcon message="Henüz seviye sınavına girmedin." action={<Link to="/placement" className="btn btn--primary btn--sm">Sınava başla</Link>} />
           )}
         </Card>
+
+        {!isAdmin && (
+          <Card title="Yazılım alanın">
+            {field ? (
+              <p>
+                Seçtiğin alan: <strong>{field.title}</strong>.{" "}
+                <Link to={`/career/${field.key}`}>Yol haritana git</Link> · <Link to="/career">Alanını değiştir</Link>
+              </p>
+            ) : career.data?.eligible ? (
+              <Alert type="success" showIcon message="Bir kursun testini geçtin, artık alanını seçebilirsin." action={<Link to="/career" className="btn btn--primary btn--sm">Alanını seç</Link>} />
+            ) : (
+              <p className="muted">Bir kursun final testini geçtiğinde yazılım alanını seçip yol haritanı alırsın.</p>
+            )}
+          </Card>
+        )}
+
+        {!isAdmin && user.level && (
+          <Card title="Kurslarım">
+            {started.length ? (
+              <ul className="my-courses">
+                {started.map((c) => (
+                  <li key={c.id}>
+                    <Link to={`/courses/${c.id}`}>{c.title}</Link>
+                    {c.finalPassed ? (
+                      <Tag color="green">Tamamlandı</Tag>
+                    ) : (
+                      <Progress percent={c.progress.percent} size="small" strokeColor="#053471" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">Henüz bir kursa başlamadın. <Link to="/courses">Kurslara göz at</Link></p>
+            )}
+          </Card>
+        )}
 
         {!isAdmin && (
           <Card title="Sınav geçmişi">

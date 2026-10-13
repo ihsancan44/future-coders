@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.js";
 import courseRoutes from "./routes/courses.js";
 import examRoutes from "./routes/exams.js";
 import blogRoutes from "./routes/blog.js";
+import careerRoutes from "./routes/career.js";
 import adminRoutes from "./routes/admin/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
 
@@ -25,6 +26,7 @@ export function createApp() {
   app.use("/api/courses", courseRoutes);
   app.use("/api/exams", examRoutes);
   app.use("/api/blog", blogRoutes);
+  app.use("/api/career", careerRoutes);
   app.use("/api/admin", adminRoutes);
 
   app.use(notFoundHandler);

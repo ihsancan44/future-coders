@@ -40,6 +40,9 @@ model User {
   school            String?
   role              Role      @default(STUDENT)
   level             Level?
+  /// Bir kursun final testini geçtikten sonra seçilen yazılım alanı (src/data/careers.js anahtarı).
+  careerField       String?
+  careerChosenAt    DateTime?
   resetTokenHash    String?
   resetTokenExpires DateTime?
   createdAt         DateTime  @default(now())

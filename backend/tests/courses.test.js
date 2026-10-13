@@ -53,7 +53,7 @@ describe("kurs listesi ve erişim", () => {
     const { course } = await createCourse({ lessons: 2 });
     const { auth } = await createUser({ level: "BETA" });
     const first = await api().post(`/api/courses/${course.id}/lessons/${course.lessons[0].id}/complete`).set(auth);
-    expect(first.body.progress).toEqual({ total: 2, completed: 1, finished: false });
+    expect(first.body.progress).toEqual({ total: 2, completed: 1, percent: 50, finished: false });
     const second = await api().post(`/api/courses/${course.id}/lessons/${course.lessons[1].id}/complete`).set(auth);
     expect(second.body.progress.finished).toBe(true);
     const undo = await api().delete(`/api/courses/${course.id}/lessons/${course.lessons[1].id}/complete`).set(auth);
