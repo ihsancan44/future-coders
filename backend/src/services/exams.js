@@ -75,6 +75,14 @@ export async function startAttempt(user, exam) {
     }
   }
 
+  // Süresi dolmuş ve hiç gönderilmemiş deneme sayılmaz: cevaplar sunucuya ulaşmadığı için öğrenci
+  // sınavı yeni bir süreyle baştan çözer (eskiden sayfa açılır açılmaz 0 puanla gönderiliyordu).
+  if (exam.durationMinutes) {
+    const cutoff = new Date(Date.now() - exam.durationMinutes * 60_000);
+    await prisma.examAttempt.deleteMany({
+      where: { userId: user.id, examId: exam.id, finishedAt: null, startedAt: { lt: cutoff } },
+    });
+  }
   const open = await prisma.examAttempt.findFirst({
     where: { userId: user.id, examId: exam.id, finishedAt: null },
   });

@@ -22,10 +22,11 @@ const mmss = (ms) => {
 
 /** Sınavı soru soru gösterir, süre biterse otomatik gönderir, sonucu onFinished ile bildirir. */
 export default function ExamRunner({ exam, attempt, onFinished }) {
+  // Cevaplar tarayıcıda saklanır: sekme kapanıp açılsa da süre dolmadan dönen öğrenci kaldığı yerden devam eder.
   const storageKey = `fc_attempt_${attempt.id}`;
   const [answers, setAnswers] = useState(() => {
     try {
-      return JSON.parse(sessionStorage.getItem(storageKey)) || {};
+      return JSON.parse(localStorage.getItem(storageKey)) || {};
     } catch {
       return {};
     }
@@ -39,7 +40,7 @@ export default function ExamRunner({ exam, attempt, onFinished }) {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(storageKey, JSON.stringify(answers));
+      localStorage.setItem(storageKey, JSON.stringify(answers));
     } catch {
       /* yok say */
     }
@@ -53,7 +54,7 @@ export default function ExamRunner({ exam, attempt, onFinished }) {
       const payload = exam.questions.map((q) => ({ questionId: q.id, optionId: answers[q.id] ?? null }));
       const res = await api.post(`/exams/attempts/${attempt.id}/submit`, { answers: payload });
       try {
-        sessionStorage.removeItem(storageKey);
+        localStorage.removeItem(storageKey);
       } catch {
         /* yok say */
       }

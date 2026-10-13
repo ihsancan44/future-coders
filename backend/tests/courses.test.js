@@ -86,3 +86,13 @@ describe("yorumlar", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("eski oturum", () => {
+  it("süresi dolmuş veya bozuk token ile herkese açık kurs listesi misafir olarak açılır", async () => {
+    await createCourse();
+    const res = await api().get("/api/courses").set({ Authorization: "Bearer bozuk.token.degeri" });
+    expect(res.status).toBe(200);
+    expect(res.body.courses[0].access.reason).toBe("LOGIN_REQUIRED");
+    expect((await api().get("/api/auth/me").set({ Authorization: "Bearer bozuk.token.degeri" })).status).toBe(401);
+  });
+});

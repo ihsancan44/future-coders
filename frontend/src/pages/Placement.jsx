@@ -82,7 +82,7 @@ export default function Placement() {
           <li><strong>{exam.durationMinutes ? `${exam.durationMinutes} dk` : "Süresiz"}</strong> süre</li>
           <li><strong>1</strong> deneme hakkı</li>
         </ul>
-        <p className="muted">Sınav sonucuna göre Alpha (başlangıç) veya Beta (ileri) sınıfına yerleşeceksin. Sınavı yarıda bırakırsan kaldığın yerden devam edebilirsin, ama süre işlemeye devam eder.</p>
+        <p className="muted">Sınav sonucuna göre Alpha (başlangıç) veya Beta (ileri) sınıfına yerleşeceksin. Sınavı yarıda bırakırsan süre işlemeye devam eder: süre dolmadan dönersen kaldığın yerden devam edersin, süre dolduysa sınava yeni bir süreyle baştan başlarsın.</p>
         {startError && <Alert type="error" showIcon message={startError} />}
         <Button type="primary" size="large" loading={starting} onClick={start}>Sınava başla</Button>
       </div>
