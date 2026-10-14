@@ -20,6 +20,9 @@ const theme = {
     borderRadius: 8,
     fontFamily: '"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif',
     fontSize: 15,
+    // Açıklama/ipucu metinleri beyaz zeminde WCAG AA kontrastına (4.5:1) ulaşsın.
+    colorTextTertiary: "rgba(0, 0, 0, 0.65)",
+    colorTextDescription: "rgba(0, 0, 0, 0.65)",
   },
   components: {
     Menu: { itemSelectedBg: "#e7eefa", itemSelectedColor: "#053471" },

@@ -664,6 +664,42 @@ async function main() {
     return `kayıtlı ${t1 - t0} ms, kayıtsız ${t2 - t1} ms`;
   });
 
+  // ================= 5. TUR =================
+  setGroup("5. tur: okul laboratuvarı ve giriş sınırları");
+
+  await step("Z1", "Aynı okul ağından (tek IP) 35 öğrenci arka arkaya giriş yapabilir", "35 × 200", async () => {
+    const list = [];
+    for (let i = 0; i < 35; i++) list.push(await seedStudent(`Sinif${i}`, "ALPHA"));
+    const codes = [];
+    for (const s of list) codes.push((await post("/api/auth/login", { body: { email: s.email, password: s.password } })).status);
+    const ok = codes.filter((c) => c === 200).length;
+    check(ok === 35, `35 öğrenciden ${ok} giriş yapabildi (${[...new Set(codes)].join(",")})`);
+    return "35/35 giriş";
+  });
+
+  await step("Z2", "Bir hesaba art arda yanlış şifre denenince o hesap kilitlenir, aynı ağdaki diğer öğrenciler etkilenmez", "11. denemede 429, diğer öğrenci 200", async () => {
+    const victim = await seedStudent("Hedef", "ALPHA");
+    const other = await seedStudent("Yandaki", "ALPHA");
+    let n = 0;
+    let res;
+    do {
+      res = await post("/api/auth/login", { body: { email: victim.email, password: "yanlis-sifre" } });
+      n++;
+    } while (res.status === 401 && n < 30);
+    eq(res.status, 429, "kilit");
+    const fine = await post("/api/auth/login", { body: { email: other.email, password: other.password } });
+    eq(fine.status, 200, "diğer öğrenci");
+    return `${n}. denemede 429, diğer öğrenci 200`;
+  });
+
+  await step("Z3", "Aynı adrese art arda şifre sıfırlama e-postası istenemez", "6. istekte 429", async () => {
+    const s = await seedStudent("Sifirla5", "ALPHA");
+    const codes = [];
+    for (let i = 0; i < 6; i++) codes.push((await post("/api/auth/forgot-password", { body: { email: s.email } })).status);
+    eq(codes.join(","), "200,200,200,200,200,429", "durumlar");
+    return codes.join(", ");
+  });
+
   // ---------- temizlik ----------
   for (const id of cleanup.exams) await del(`/api/admin/exams/${id}`, { token: admin });
   for (const id of cleanup.courses) await del(`/api/admin/courses/${id}`, { token: admin });

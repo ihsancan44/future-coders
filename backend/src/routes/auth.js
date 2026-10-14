@@ -14,13 +14,19 @@ import { birthDateField, emailField } from "../lib/validators.js";
 
 const router = Router();
 
-const limiter = rateLimit({
+const limitOptions = {
   windowMs: 15 * 60 * 1000,
-  limit: config.isTest ? 10_000 : 30,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Çok fazla deneme yaptınız, lütfen biraz sonra tekrar deneyin." },
-});
+};
+const accountKey = (req) => `${req.ip}|${String(req.body?.email ?? "").trim().toLocaleLowerCase("tr")}`;
+// Okul bilgisayar laboratuvarında bütün sınıf aynı internet adresini (IP) paylaşır: IP başına sınır geniş tutulur.
+const limiter = rateLimit({ ...limitOptions, limit: config.isTest ? 10_000 : 300 });
+// Şifre tahminine karşı asıl sınır hesap başına: aynı IP'den aynı e-postaya 10 hatalı giriş. Başarılı girişler sayılmaz.
+const loginLimiter = rateLimit({ ...limitOptions, limit: config.isTest ? 10_000 : 10, skipSuccessfulRequests: true, keyGenerator: accountKey });
+// Aynı adrese art arda sıfırlama e-postası gönderilmesin.
+const mailLimiter = rateLimit({ ...limitOptions, limit: config.isTest ? 10_000 : 5, keyGenerator: accountKey });
 
 const password = z.string().min(8, "Şifre en az 8 karakter olmalı.").max(100);
 const email = emailField;
@@ -58,6 +64,7 @@ router.post(
 router.post(
   "/login",
   limiter,
+  loginLimiter,
   validate(z.object({ email, password: z.string().min(1, "Şifrenizi girin.") })),
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email: req.body.email } });
@@ -122,6 +129,7 @@ const hashToken = (t) => crypto.createHash("sha256").update(t).digest("hex");
 router.post(
   "/forgot-password",
   limiter,
+  mailLimiter,
   validate(z.object({ email })),
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email: req.body.email } });
@@ -131,7 +139,7 @@ router.post(
         where: { id: user.id },
         data: { resetTokenHash: hashToken(token), resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000) },
       });
-      const link = `${config.clientUrl}/reset-password?token=${token}`;
+      const link = `${config.publicUrl}/reset-password?token=${token}`;
       // E-posta beklenmeden cevap verilir: kayıtlı adreste geç, kayıtsızda hızlı cevap hesap var mı bilgisini sızdırıyordu.
       // SMTP hatası da artık sadece kayıtlı adreslerde 500 vermiyor; loga yazılır.
       sendMail({

@@ -49,6 +49,7 @@ export default function Courses() {
           />
           <Select
             placeholder="Kategori"
+            aria-label="Kategori"
             allowClear
             value={category}
             onChange={setCategory}
@@ -58,6 +59,7 @@ export default function Courses() {
           <Select
             value={sort}
             onChange={setSort}
+            aria-label="Sıralama"
             options={[{ value: "new", label: "En yeni" }, { value: "popular", label: "En popüler" }]}
             className="filters__select"
           />

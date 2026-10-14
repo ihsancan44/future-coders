@@ -99,11 +99,11 @@ export default function AdminUsers() {
           {
             title: "Rol",
             dataIndex: "role",
-            render: (r, u) => (
+            // Admin kendi rolünü değiştiremez: soluk (okunmayan) kilitli kutu yerine düz metin gösterilir.
+            render: (r, u) => u.id === me.id ? <span>Admin (sen)</span> : (
               <Select
                 size="small"
                 value={r}
-                disabled={u.id === me.id}
                 style={{ width: 110 }}
                 onChange={(v) => update(u.id, { role: v })}
                 options={[{ value: "STUDENT", label: "Öğrenci" }, { value: "ADMIN", label: "Admin" }]}

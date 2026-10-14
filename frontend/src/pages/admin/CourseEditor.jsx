@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Switch, Table } from "antd";
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Switch, Table } from "antd";
 import { message } from "../../utils/feedback";
 import { ArrowDown, ArrowUp, Plus } from "lucide-react";
 import { api, apiError } from "../../api/client";
+import FormSelect from "../../components/FormSelect";
 import ImageUpload from "../../components/ImageUpload";
 import VideoInput from "../../components/VideoInput";
 import { ErrorState, Loading } from "../../components/Status";
@@ -157,7 +158,7 @@ export default function CourseEditor() {
         <Form form={form} layout="vertical" onFinish={save} initialValues={{ level: "ALL", category: "Frontend" }} className="form-grid">
           <Form.Item name="title" label="Başlık" className="span-2" rules={[{ required: true, min: 3, message: "Başlık en az 3 karakter olmalı." }]}><Input /></Form.Item>
           <Form.Item name="category" label="Kategori" rules={[{ required: true, message: "Kategori girin." }]}><Input placeholder="Frontend, Programlama, Backend..." /></Form.Item>
-          <Form.Item name="level" label="Hangi sınıfa açık?" rules={[{ required: true }]}><Select options={levelOptions} /></Form.Item>
+          <Form.Item name="level" label="Hangi sınıfa açık?" rules={[{ required: true }]}><FormSelect options={levelOptions} /></Form.Item>
           <Form.Item name="summary" label="Kısa açıklama (kartlarda görünür)" className="span-2" rules={[{ required: true, message: "Kısa açıklama girin." }]}>
             <Input maxLength={300} showCount />
           </Form.Item>

@@ -74,7 +74,7 @@ export default function VideoInput({ value, onChange }) {
             </Upload>
             {uploaded && !busy && <Button icon={<Trash2 size={15} />} onClick={() => onChange?.(null)}>Videoyu kaldır</Button>}
           </div>
-          {busy && <Progress percent={percent} size="small" status="active" />}
+          {busy && <Progress percent={percent} size="small" status="active" aria-label="Yükleme durumu" />}
           <span className="muted small">MP4, WEBM veya OGG, en fazla {VIDEO_MAX_MB / 1024} GB.</span>
         </>
       )}

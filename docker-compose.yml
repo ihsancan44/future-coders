@@ -1,8 +1,10 @@
 # Tüm uygulamayı tek komutla çalıştırır: docker compose up --build
-# Site: http://localhost:8080  ·  Admin: ADMIN_EMAIL / ADMIN_PASSWORD (varsayılanlar aşağıda)
+# Önce bu klasörde .env dosyası oluşturun (bkz. .env.example): JWT_SECRET ve ADMIN_PASSWORD zorunludur.
+# Site: http://localhost:8080 (canlıda önüne HTTPS sağlayan bir ters vekil koyun, bkz. README "Canlıya alma").
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: futurecoders
       POSTGRES_PASSWORD: futurecoders
@@ -16,24 +18,29 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://futurecoders:futurecoders@db:5432/futurecoders
-      JWT_SECRET: ${JWT_SECRET:-yerel-gelistirme-anahtari-degistirin}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET verilmeli (openssl rand -hex 32)}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@futurecoders.dev}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD verilmeli}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-Codevia <no-reply@futurecoders.dev>}
     volumes:
       - uploads:/app/uploads
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
