@@ -206,6 +206,11 @@ const posts = [
 async function main() {
   const email = (process.env.ADMIN_EMAIL || "admin@futurecoders.dev").toLowerCase();
   const password = process.env.ADMIN_PASSWORD || "Admin12345";
+  // ADMIN_PASSWORD yalnızca admin hesabı ilk kez oluşturulurken kullanılır; sonra şifre profilden değiştirilir.
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (!exists && process.env.NODE_ENV === "production" && (password === "Admin12345" || password.length < 10)) {
+    throw new Error("Canlı ortamda ADMIN_PASSWORD verilmeli (en az 10 karakter, varsayılan şifre kullanılamaz).");
+  }
   const admin = await prisma.user.upsert({
     where: { email },
     update: {},

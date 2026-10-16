@@ -14,12 +14,12 @@ import { errorHandler, notFoundHandler, rejectNullChars } from "./middleware/err
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  app.set("trust proxy", config.trustProxy);
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-  app.use(cors({ origin: config.clientUrl.split(",").map((s) => s.trim()) }));
+  app.use(cors({ origin: config.clientUrls }));
   app.use(express.json({ limit: "1mb" }));
   app.use(rejectNullChars);
-  if (!config.isTest) app.use(morgan("dev"));
+  if (!config.isTest) app.use(morgan(config.isProduction ? "combined" : "dev"));
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
   app.use("/uploads", express.static(config.uploadDir, { maxAge: "7d" }));

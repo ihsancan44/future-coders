@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
 import { Card, Table, Tag } from "antd";
 import { ErrorState, Loading } from "../../components/Status";
 import { useApi } from "../../hooks/useApi";
@@ -89,7 +90,7 @@ export default function Dashboard() {
           pagination={false}
           scroll={{ x: true }}
           columns={[
-            { title: "Kurs", dataIndex: "title" },
+            { title: "Kurs", dataIndex: "title", render: (t, c) => <Link to={`/admin/courses/${c.id}`}>{t}</Link> },
             { title: "Sınıf", dataIndex: "level", render: (l) => <Tag color={LEVEL_COLOR[l]}>{LEVEL_LABEL[l]}</Tag> },
             { title: "Durum", dataIndex: "published", render: (p) => (p ? <Tag color="green">Yayında</Tag> : <Tag>Gizli</Tag>) },
             { title: "Ders", dataIndex: "lessons", align: "right" },

@@ -1880,3 +1880,17 @@ img {
 .footer__brand .brand-via {
   color: #ff6b8b;
 }
+
+/* Erişilebilirlik: antd etiket renkleri açık zeminde yeterli kontrast vermiyor (WCAG AA 4.5:1). */
+.ant-tag.ant-tag-green { color: #237804; }
+.ant-tag.ant-tag-blue { color: #0050b3; }
+.ant-tag.ant-tag-magenta { color: #9e1068; }
+.ant-tag.ant-tag-purple { color: #391085; }
+.ant-tag.ant-tag-gold { color: #874d00; }
+.ant-tag.ant-tag-red { color: #a8071a; }
+/* Metin içindeki bağlantılar yalnızca renkle ayırt edilmesin. */
+p a:not(.btn),
+.auth__footer a { text-decoration: underline; text-underline-offset: 2px; }
+/* Boş tablo mesajı ("Henüz ... yok") okunabilir olsun. */
+body .ant-table-wrapper .ant-table-tbody > tr.ant-table-placeholder > td,
+body .ant-empty-description { color: rgba(0, 0, 0, 0.65); }

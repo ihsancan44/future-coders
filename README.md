@@ -11,13 +11,27 @@
 ## Hızlı başlangıç (Docker)
 
 ```bash
+cp .env.example .env          # JWT_SECRET ve ADMIN_PASSWORD değerlerini doldurun
 docker compose up --build
 ```
 
 - Site: http://localhost:8080
-- Admin girişi: `admin@futurecoders.dev` / `Admin12345` (canlıya almadan önce `ADMIN_PASSWORD` ve `JWT_SECRET` değiştirin)
+- Admin girişi: `ADMIN_EMAIL` / `ADMIN_PASSWORD` (varsayılan e-posta `admin@futurecoders.dev`)
 
 İlk açılışta veritabanı şeması kurulur ve örnek kurslar, seviye sınavı, final sınavları ve blog yazıları eklenir.
+
+## Canlıya alma
+
+Docker ile internete açmadan önce:
+
+1. **`JWT_SECRET`**: en az 32 karakterlik rastgele bir değer (`openssl rand -hex 32`). Örnek değerlerle sunucu açılmaz; bu değeri bilen herkes admin oturumu taklit edebilir.
+2. **`ADMIN_PASSWORD`**: en az 10 karakter. Yalnızca admin hesabı ilk kez oluşturulurken kullanılır; sonradan değiştirmek için sitede admin olarak girip profil sayfasından şifreyi değiştirin.
+3. **`CLIENT_URL`**: sitenin herkese açık adresi (örn. `https://codevia.com`). Şifre sıfırlama e-postasındaki bağlantı buradaki ilk adresi kullanır.
+4. **HTTPS**: `docker compose` sadece 8080 portunda düz HTTP sunar. Önüne HTTPS sağlayan bir ters vekil (Caddy, Traefik, Cloudflare, sunucudaki nginx) koyun ve **`TRUST_PROXY=2`** yapın; yoksa giriş denemesi sınırı tüm ziyaretçileri tek kişi sayar.
+5. **E-posta**: şifre sıfırlama için `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` ve alan adı size ait bir `MAIL_FROM` verin. SMTP yoksa canlıda e-posta gönderilmez (yerel kurulumda bağlantı sunucu loguna yazılır).
+6. **Yedek**: veritabanı `db-data`, yüklenen videolar ve görseller `uploads` adlı Docker birimlerinde durur; ikisini de düzenli yedekleyin.
+
+Kapsayıcılar sunucu yeniden başlayınca kendiliğinden açılır (`restart: unless-stopped`).
 
 ## Geliştirme ortamı
 
@@ -120,4 +134,4 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 
 ## Ortam değişkenleri
 
-Tam liste ve açıklamalar `backend/.env.example` ve `frontend/.env.example` dosyalarında. Şifre sıfırlama e-postası için `SMTP_*` değişkenlerini doldurun; boş bırakılırsa sıfırlama bağlantısı sunucu loguna yazılır.
+Tam liste ve açıklamalar `backend/.env.example`, `frontend/.env.example` ve (Docker için) kök klasördeki `.env.example` dosyalarında. Şifre sıfırlama e-postası için `SMTP_*` değişkenlerini doldurun; boş bırakılırsa yerel kurulumda sıfırlama bağlantısı sunucu loguna yazılır. `TRUST_PROXY`, önündeki ters vekil sayısıdır (varsayılan 1).

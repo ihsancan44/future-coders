@@ -92,7 +92,7 @@ export default function Profile() {
                     {c.finalPassed ? (
                       <Tag color="green">Tamamlandı</Tag>
                     ) : (
-                      <Progress percent={c.progress.percent} size="small" strokeColor="#053471" />
+                      <Progress percent={c.progress.percent} size="small" strokeColor="#053471" aria-label={`${c.title} ilerlemesi`} />
                     )}
                   </li>
                 ))}
@@ -137,7 +137,7 @@ export default function Profile() {
           >
             <Form.Item name="firstName" label="İsim" rules={[{ required: true, min: 2 }]}><Input /></Form.Item>
             <Form.Item name="lastName" label="Soyisim" rules={[{ required: true, min: 2 }]}><Input /></Form.Item>
-            <Form.Item label="E-posta" className="span-2"><Input value={user.email} disabled /></Form.Item>
+            <Form.Item label="E-posta" htmlFor="profile-email" className="span-2"><Input id="profile-email" value={user.email} disabled /></Form.Item>
             <Form.Item name="birthDate" label="Doğum tarihi"><DatePicker format="DD.MM.YYYY" style={{ width: "100%" }} /></Form.Item>
             <Form.Item name="school" label="Okul"><Input /></Form.Item>
             <Button type="primary" htmlType="submit" loading={saving}>Kaydet</Button>

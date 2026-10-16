@@ -72,7 +72,7 @@ export default function MemberDrawer({ userId, isSelf, onClose, onUpdated, onDel
                 dataSource={data.courses}
                 columns={[
                   { title: "Kurs", dataIndex: "title" },
-                  { title: "İlerleme", render: (_, c) => <Progress percent={c.percent} size="small" format={() => `${c.completed}/${c.total}`} /> },
+                  { title: "İlerleme", render: (_, c) => <Progress percent={c.percent} size="small" format={() => `${c.completed}/${c.total}`} aria-label={`${c.title} ilerlemesi`} /> },
                   { title: "Kurs sonu testi", dataIndex: "finalPassed", render: (p) => (p ? <Tag color="green">Geçti</Tag> : "—") },
                 ]}
               />

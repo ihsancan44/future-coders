@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Tag } from "antd";
+import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Space, Switch, Tag } from "antd";
 import { message } from "../../utils/feedback";
 import { Plus, Trash2 } from "lucide-react";
 import { api, apiError } from "../../api/client";
+import FormSelect from "../../components/FormSelect";
 import { ErrorState, Loading } from "../../components/Status";
 import { useApi } from "../../hooks/useApi";
 import { applyApiErrors } from "../../utils/forms";
@@ -169,7 +170,7 @@ export default function ExamEditor() {
           <Form.Item name="title" label="Başlık" className="span-2" rules={[{ required: true, min: 3, message: "Başlık girin." }]}><Input /></Form.Item>
           {type === "FINAL" && (
             <Form.Item name="courseId" label="Kurs" className="span-2" rules={[{ required: true, message: "Kurs seçin." }]}>
-              <Select
+              <FormSelect
                 loading={courses.loading}
                 options={(courses.data?.courses || []).map((c) => ({ value: c.id, label: c.title, disabled: c.hasFinalExam && c.id !== exam?.courseId }))}
                 placeholder="Kurs seçin"

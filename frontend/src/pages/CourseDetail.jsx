@@ -260,7 +260,7 @@ export default function CourseDetail() {
         {course.progress && (
           <div className="progress-box">
             <span>İlerlemen: kursun %{percent} kadarını tamamladın</span>
-            <Progress percent={percent} strokeColor="#053471" />
+            <Progress percent={percent} strokeColor="#053471" aria-label="Kurs ilerlemesi" />
             <span className="muted small">{course.progress.completed} / {course.progress.total} adım tamamlandı</span>
           </div>
         )}
