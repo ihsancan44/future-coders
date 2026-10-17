@@ -24,15 +24,74 @@ console.log = console.info = console.debug = emit("stdout");
 console.error = console.warn = emit("stderr");
 console.table = emit("stdout");
 
+const report = (err) => postMessage({ type: "out", stream: "stderr", text: `${err && err.name ? `${err.name}: ${err.message}` : String(err)}\n` });
+
+// Zamanlayıcılar sayılır: kod bitse de bekleyen setTimeout/setInterval varsa onların çıktısı da beklenir.
+// Hiç durdurulmayan setInterval sayfanın koyduğu zaman sınırında kesilir.
+const active = new Set();
+let finished = false;
+let exitCode = 0;
+const check = () => {
+  if (finished && active.size === 0) {
+    finished = false;
+    postMessage({ type: "done", exitCode });
+  }
+};
+const { setTimeout: st, clearTimeout: ct, setInterval: si, clearInterval: ci } = self;
+self.setTimeout = (fn, ms, ...args) => {
+  const id = st(() => {
+    active.delete(id);
+    try {
+      if (typeof fn === "function") fn(...args);
+    } catch (err) {
+      report(err);
+      exitCode = 1;
+    }
+    check();
+  }, ms);
+  active.add(id);
+  return id;
+};
+self.clearTimeout = (id) => {
+  active.delete(id);
+  ct(id);
+  check();
+};
+self.setInterval = (fn, ms, ...args) => {
+  const id = si(() => {
+    try {
+      fn(...args);
+    } catch (err) {
+      report(err);
+      exitCode = 1;
+    }
+  }, ms);
+  active.add(id);
+  return id;
+};
+self.clearInterval = (id) => {
+  active.delete(id);
+  ci(id);
+  check();
+};
+self.addEventListener("unhandledrejection", (e) => {
+  report(e.reason);
+  exitCode = 1;
+});
+
 self.onmessage = async ({ data }) => {
   const lines = (data.stdin || "").split("\n");
   self.prompt = () => (lines.length ? lines.shift() : null);
   try {
     const AsyncFunction = (async () => {}).constructor;
     await new AsyncFunction(data.code)();
-    postMessage({ type: "done", exitCode: 0 });
   } catch (err) {
-    postMessage({ type: "out", stream: "stderr", text: `${err && err.name ? `${err.name}: ${err.message}` : String(err)}\n` });
-    postMessage({ type: "done", exitCode: 1 });
+    report(err);
+    exitCode = 1;
   }
+  // Promise'lerin kalan adımları (then/await) çalışsın diye bir tur beklenir.
+  st(() => {
+    finished = true;
+    check();
+  }, 0);
 };

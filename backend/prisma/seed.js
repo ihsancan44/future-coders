@@ -3,6 +3,7 @@
 // dolu veritabanında eski final soruları yeni kurs sonu testleriyle değiştirilir.
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma.js";
+import { addLearningContent } from "./learningContent.js";
 
 // Orijinal projedeki tanıtım videosu. Gerçek ders videolarını admin panelinden değiştirin.
 const VIDEO = "https://www.youtube.com/watch?v=CgkZ7MvWUAA";
@@ -230,6 +231,8 @@ async function main() {
 
   if ((await prisma.course.count()) > 0) {
     await upgradeFinalExams();
+    const added = await addLearningContent(prisma);
+    if (added) console.log(`${added} derse kısa özet ve pratik soruları eklendi.`);
     console.log("Kurslar zaten var, örnek içerik eklenmedi.");
     return;
   }
@@ -291,6 +294,7 @@ async function main() {
   for (const p of posts) {
     await prisma.blogPost.create({ data: { ...p, published: true, authorId: admin.id } });
   }
+  await addLearningContent(prisma);
   console.log("Örnek kurslar, sınavlar ve blog yazıları eklendi.");
 }
 
