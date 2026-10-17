@@ -9,7 +9,7 @@ export const api = () => request(app);
 
 export async function resetDb() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "AttemptAnswer","ExamAttempt","Option","Question","Exam","LessonProgress","Comment","Lesson","Course","BlogPost","User" RESTART IDENTITY CASCADE',
+    'TRUNCATE "Reel","PracticeQuestion","AttemptAnswer","ExamAttempt","Option","Question","Exam","LessonProgress","Comment","Lesson","Course","BlogPost","User" RESTART IDENTITY CASCADE',
   );
 }
 
