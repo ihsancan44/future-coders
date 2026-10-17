@@ -29,7 +29,7 @@ export default function CourseCard({ course }) {
         ) : (
           course.progress?.completed > 0 && (
             <div className="course-card__progress">
-              <Progress percent={course.progress.percent} size="small" strokeColor="#053471" aria-label="Kurs ilerlemesi" />
+              <Progress percent={course.progress.percent} size="small" strokeColor="var(--brand-solid)" aria-label="Kurs ilerlemesi" />
               <span className="muted small">%{course.progress.percent} tamamlandı</span>
             </div>
           )

@@ -17,5 +17,8 @@ module.exports = {
     "no-unused-vars": ["error", { varsIgnorePattern: "^_", argsIgnorePattern: "^_", ignoreRestSiblings: true }],
     "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
   },
-  overrides: [{ files: ["vite.config.js", "*.config.js"], env: { node: true } }],
+  overrides: [
+    { files: ["vite.config.js", "*.config.js"], env: { node: true } },
+    { files: ["public/runners/*.js"], env: { browser: false, worker: true }, globals: { initSqlJs: "readonly" } },
+  ],
 };
