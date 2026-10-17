@@ -17,6 +17,7 @@ import Profile from "./pages/Profile";
 import CareerPicker from "./pages/CareerPicker";
 import CareerRoadmap from "./pages/CareerRoadmap";
 import NotFound from "./pages/NotFound";
+import Compiler from "./pages/Compiler";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCourses from "./pages/admin/AdminCourses";
 import CourseEditor from "./pages/admin/CourseEditor";
@@ -39,6 +40,7 @@ export const routes = [
       { path: "courses/:id/final", element: <RequireAuth><FinalExam /></RequireAuth> },
       { path: "roadmap", element: <Roadmap /> },
       { path: "roadmap/:id", element: <BlogPost /> },
+      { path: "compiler", element: <Compiler /> },
       { path: "login", element: <GuestOnly><Login /></GuestOnly> },
       { path: "register", element: <GuestOnly><Register /></GuestOnly> },
       { path: "forgot-password", element: <ForgotPassword /> },

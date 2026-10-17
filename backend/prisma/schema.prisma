@@ -81,11 +81,21 @@ model Lesson {
   content         String
   videoUrl        String?
   durationMinutes Int      @default(0)
+  /// "Kısa ve net" panelindeki madde madde özet bilgiler.
+  keyPoints       String[] @default([])
+  /// Özetin altında gösterilen kısa örnek kod.
+  codeExample     String   @default("")
+  /// "Akılda kalsın" notu.
+  tip             String   @default("")
+  /// Derleyicinin bu konuda varsayılan olarak açacağı dil (frontend/src/utils/languages.js anahtarı).
+  language        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course   Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course   Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progress LessonProgress[]
+  practice PracticeQuestion[]
+  reels    Reel[]
 
   @@index([courseId, order])
 }
@@ -201,4 +211,37 @@ model BlogPost {
   updatedAt  DateTime @updatedAt
 
   author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+/// Konu özetinin ardından gelen kısa pratik sorusu (çoktan seçmeli, cevap tarayıcıda hemen kontrol edilir).
+model PracticeQuestion {
+  id          Int      @id @default(autoincrement())
+  lessonId    Int
+  order       Int
+  text        String
+  code        String   @default("")
+  options     String[]
+  answerIndex Int
+  explanation String   @default("")
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, order])
+}
+
+/// Konunun kısa dikey videosu (reels). Videonun yanında açılan derleyici "language" diliyle ve "starterCode" ile başlar.
+model Reel {
+  id          Int      @id @default(autoincrement())
+  lessonId    Int
+  order       Int
+  title       String
+  videoUrl    String
+  language    String?
+  starterCode String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, order])
 }

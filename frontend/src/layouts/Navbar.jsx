@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Dropdown } from "antd";
-import { Compass, LayoutDashboard, LogOut, Menu, User, X } from "lucide-react";
+import { Compass, LayoutDashboard, LogOut, Menu, Moon, Sun, User, X } from "lucide-react";
 import logo from "../assets/logo.svg";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { LEVEL_LABEL } from "../utils/format";
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { mode, toggle } = useTheme();
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 
@@ -42,10 +44,21 @@ export default function Navbar() {
           <NavLink to="/" end onClick={close}>Ana Sayfa</NavLink>
           <NavLink to="/courses" onClick={close}>Kurslar</NavLink>
           <NavLink to="/roadmap" onClick={close}>Yol Haritası</NavLink>
+          <NavLink to="/compiler" onClick={close}>Derleyici</NavLink>
           {user?.careerField && <NavLink to={`/career/${user.careerField}`} onClick={close}>Kariyer Yolum</NavLink>}
           {user && !isAdmin && !user.level && (
             <NavLink to="/placement" onClick={close} className="navbar__cta">Seviye Sınavı</NavLink>
           )}
+          <button
+            type="button"
+            className="navbar__theme"
+            onClick={toggle}
+            aria-label={mode === "dark" ? "Aydınlık moda geç" : "Karanlık moda geç"}
+            title={mode === "dark" ? "Aydınlık mod" : "Karanlık mod"}
+          >
+            {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            <span className="navbar__theme-label">{mode === "dark" ? "Aydınlık mod" : "Karanlık mod"}</span>
+          </button>
           <div className="navbar__account">
             {user ? (
               <Dropdown menu={{ items, onClick: close }} trigger={["click"]} placement="bottomRight">

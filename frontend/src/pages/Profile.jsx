@@ -92,7 +92,7 @@ export default function Profile() {
                     {c.finalPassed ? (
                       <Tag color="green">Tamamlandı</Tag>
                     ) : (
-                      <Progress percent={c.progress.percent} size="small" strokeColor="#053471" aria-label={`${c.title} ilerlemesi`} />
+                      <Progress percent={c.progress.percent} size="small" strokeColor="var(--brand-solid)" aria-label={`${c.title} ilerlemesi`} />
                     )}
                   </li>
                 ))}

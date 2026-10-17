@@ -33,6 +33,12 @@ function trustProxy() {
   return v; // IP / alt ağ listesi
 }
 
+function codeRunnerUrl() {
+  const v = (process.env.CODE_RUNNER_URL ?? "").trim();
+  if (v === "off") return "";
+  return (v || "https://wandbox.org").replace(/\/+$/, "");
+}
+
 const clientUrls = (process.env.CLIENT_URL || "http://localhost:5173").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
 
 export const config = {
@@ -54,6 +60,13 @@ export const config = {
     pass: process.env.SMTP_PASS || "",
   },
   mailFrom: process.env.MAIL_FROM || "Codevia <no-reply@futurecoders.dev>",
+  /** Derleyicideki sunucu dilleri bu Wandbox uyumlu servise gönderilir. CODE_RUNNER_URL=off kapatır. */
+  codeRunnerUrl: codeRunnerUrl(),
+  /** Codevia Asistan (chatbot). Anahtar yoksa asistan kapalıdır, site normal çalışır. */
+  assistant: {
+    apiKey: process.env.ANTHROPIC_API_KEY || "",
+    model: process.env.ASSISTANT_MODEL || "claude-opus-5-5",
+  },
   /** Seviye sınavında bu yüzdenin altı ALPHA, üstü BETA sınıfına atanır (sınavın kendi eşiği yoksa). */
   defaultPassingScore: 60,
 };

@@ -140,7 +140,10 @@ router.get(
     const course = await prisma.course.findUnique({
       where: { id },
       include: {
-        lessons: { orderBy: { order: "asc" } },
+        lessons: {
+          orderBy: { order: "asc" },
+          include: { practice: { orderBy: { order: "asc" } }, reels: { orderBy: { order: "asc" } } },
+        },
         finalExam: { select: { id: true, published: true, passingScore: true, durationMinutes: true, _count: { select: { questions: true } } } },
         _count: { select: { comments: true } },
       },
@@ -184,7 +187,25 @@ router.get(
           durationMinutes: l.durationMinutes,
           completed: completedIds.includes(l.id),
           // İçerik ve video sadece erişimi olanlara gider.
-          ...(access.canAccess ? { content: l.content, videoUrl: l.videoUrl } : {}),
+          ...(access.canAccess
+            ? {
+                content: l.content,
+                videoUrl: l.videoUrl,
+                keyPoints: l.keyPoints,
+                codeExample: l.codeExample,
+                tip: l.tip,
+                language: l.language,
+                practice: l.practice.map((q) => ({
+                  id: q.id,
+                  text: q.text,
+                  code: q.code,
+                  options: q.options,
+                  answerIndex: q.answerIndex,
+                  explanation: q.explanation,
+                })),
+                reels: l.reels.map((r) => ({ id: r.id, title: r.title, videoUrl: r.videoUrl, language: r.language, starterCode: r.starterCode })),
+              }
+            : {}),
         })),
         finalExam:
           final && final.published && final._count.questions > 0
