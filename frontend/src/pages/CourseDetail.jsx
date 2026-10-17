@@ -1,19 +1,16 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import PropTypes from "prop-types";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Empty, Input, Popconfirm, Progress, Select, Tabs, Tag } from "antd";
+import { Alert, Button, Empty, Input, Popconfirm, Progress, Tabs, Tag } from "antd";
 import { message } from "../utils/feedback";
-import { Bot, CheckCircle2, Circle, Clock3, Lock, MessageCircle, Trash2 } from "lucide-react";
-import { api, apiError } from "../api/client";
+import { CheckCircle2, Circle, Clapperboard, Clock3, Code2, Lock, MessageCircle, Trash2 } from "lucide-react";
+import { api, apiError, assetUrl } from "../api/client";
 import Cover from "../components/Cover";
-import InfoPanel from "../components/learn/InfoPanel";
-import ReelPlayer from "../components/learn/ReelPlayer";
-import AssistantPanel from "../components/learn/AssistantPanel";
-import logo from "../assets/logo.svg";
 import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
-import { LEVEL_COLOR, LEVEL_LABEL, formatDate, formatDuration, paragraphs } from "../utils/format";
+import { useReels } from "../context/ReelsContext";
+import { LEVEL_COLOR, LEVEL_LABEL, embedUrl, formatDate, formatDuration, isVideoFile, paragraphs } from "../utils/format";
 
 const CodeRunner = lazy(() => import("../components/code/CodeRunner"));
 
@@ -149,108 +146,25 @@ function FinalExamBox({ course }) {
 }
 FinalExamBox.propTypes = { course: PropTypes.object.isRequired };
 
-/** Konunun videoları: önce dersin kendi videosu, sonra eklenen kısa videolar. */
-function reelItems(lesson) {
-  if (!lesson) return [];
-  const own = lesson.videoUrl
-    ? [{ key: `lesson-${lesson.id}`, kind: "lesson", title: lesson.title, videoUrl: lesson.videoUrl, language: lesson.language, starterCode: lesson.codeExample }]
-    : [];
-  return [...own, ...(lesson.reels || []).map((r) => ({ ...r, key: `reel-${r.id}`, kind: "reel", language: r.language || lesson.language }))];
-}
-
-function LockedView({ course }) {
-  return (
-    <div className="course-page">
-      <div className="course-page__main">
-        <CourseTitle course={course} />
-        <div className="player">
-          <Cover image={course.coverImage} title={course.title} label={course.category} className="player__cover" />
-          <LockedNotice access={course.access} />
-        </div>
-        <div className="prose">
-          {paragraphs(course.description).map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
-        </div>
-      </div>
-      <aside className="course-page__side">
-        <h3>Kurs adımları</h3>
-        <LessonList lessons={course.lessons} canAccess={false} />
-      </aside>
-    </div>
-  );
-}
-LockedView.propTypes = { course: PropTypes.object.isRequired };
-
-function CourseTitle({ course }) {
-  return (
-    <div className="course-page__title">
-      <h1>{course.title}</h1>
-      <div className="course-page__tags">
-        <Tag color={LEVEL_COLOR[course.level]}>{LEVEL_LABEL[course.level]}</Tag>
-        <Tag>{course.category}</Tag>
-        <span className="muted"><Clock3 size={14} /> {formatDuration(course.totalMinutes)}</span>
-        <span className="muted"><MessageCircle size={14} /> {course.commentCount} yorum</span>
-      </div>
-    </div>
-  );
-}
-CourseTitle.propTypes = { course: PropTypes.object.isRequired };
-
-function LessonList({ lessons, currentId, canAccess, onSelect }) {
-  return (
-    <ol className="lesson-list">
-      {lessons.map((l, i) => (
-        <li key={l.id}>
-          <button
-            className={`lesson-list__item ${l.id === currentId && canAccess ? "is-active" : ""}`}
-            onClick={() => canAccess && onSelect(l.id)}
-            disabled={!canAccess}
-          >
-            {canAccess ? (l.completed ? <CheckCircle2 className="ok" size={18} /> : <Circle size={18} />) : <Lock size={16} />}
-            <span className="lesson-list__title">{i + 1}. {l.title}</span>
-            <span className="muted small">{formatDuration(l.durationMinutes)}</span>
-          </button>
-        </li>
-      ))}
-    </ol>
-  );
-}
-LessonList.propTypes = { lessons: PropTypes.array.isRequired, currentId: PropTypes.number, canAccess: PropTypes.bool, onSelect: PropTypes.func };
-
 export default function CourseDetail() {
   const id = Number(useParams().id);
+  const [params, setParams] = useSearchParams();
   const { data, error, loading, reload, setData } = useApi(`/courses/${id}`);
+  const [saving, setSaving] = useState(false);
+  const [compilerOpen, setCompilerOpen] = useState(false);
+  const { openReels } = useReels();
 
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error.message} onRetry={error.status === 404 ? undefined : reload} />;
-  if (!data.course.access.canAccess) return <LockedView course={data.course} />;
-  return <LearnView course={data.course} setData={setData} />;
-}
 
-/**
- * Öğrenme ekranı: ortada konunun kısa videoları (reels). Soldaki yuvarlak Codevia logosu "kısa bilgi + pratik"
- * panelini, sağdaki asistan düğmesi Codevia Asistan'ı açar. Videonun yanındaki düğme o dilin derleyicisini açar.
- */
-function LearnView({ course, setData }) {
-  const id = course.id;
-  const [params, setParams] = useSearchParams();
-  const [saving, setSaving] = useState(false);
-  const [leftOpen, setLeftOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [compiler, setCompiler] = useState(null);
-  const [seed, setSeed] = useState(null);
-  const [reelIndex, setReelIndex] = useState(0);
-
+  const course = data.course;
+  const { canAccess } = course.access;
   const lessons = course.lessons;
   const currentId = Number(params.get("lesson")) || lessons.find((l) => !l.completed)?.id || lessons[0]?.id;
-  const index = Math.max(0, lessons.findIndex((l) => l.id === currentId));
+  const index = lessons.findIndex((l) => l.id === currentId);
   const lesson = lessons[index];
-  const items = useMemo(() => reelItems(lesson), [lesson]);
-
-  useEffect(() => {
-    setReelIndex(0);
-  }, [lesson?.id]);
+  const videoFile = canAccess && isVideoFile(lesson?.videoUrl) ? assetUrl(lesson.videoUrl) : null;
+  const video = canAccess && !videoFile ? embedUrl(lesson?.videoUrl) : null;
 
   const selectLesson = (lessonId) => setParams({ lesson: String(lessonId) }, { replace: false });
 
@@ -274,180 +188,125 @@ function LearnView({ course, setData }) {
     }
   };
 
-  const openCompiler = (code, language) => {
-    setCompiler({ code, language: language || lesson.language || "python", n: Date.now() });
-    // Ekran derleyiciyle iki paneli yan yana sığdıramıyorsa paneller kapanır (istenirse üstte tekrar açılır).
-    if (!window.matchMedia?.("(min-width: 1821px)").matches) {
-      setLeftOpen(false);
-      setChatOpen(false);
-    }
-  };
-  const ask = (item) => {
-    setChatOpen(true);
-    setSeed({ text: `"${item.title}" videosunda anlamadığım yer: `, n: Date.now() });
-  };
-
   const percent = course.progress?.percent ?? 0;
-  const next = lessons[index + 1];
-
-  const endCard = (
-    <div className="reel__end">
-      <CheckCircle2 size={42} />
-      <h3>{lesson.title} konusunun sonuna geldin</h3>
-      <p>Kısa bilgileri ve pratiği soldaki Codevia logosundan açabilirsin.</p>
-      {course.progress && (
-        <Button type="primary" loading={saving} onClick={toggleComplete} disabled={lesson.completed && !next}>
-          {lesson.completed ? (next ? "Sonraki konuya geç" : "Konu tamamlandı ✓") : next ? "Tamamladım, sonraki konu" : "Tamamladım"}
-        </Button>
-      )}
-      <Button onClick={() => setLeftOpen(true)}>Pratik yap</Button>
-    </div>
-  );
-
-  const stageClass = ["learn__stage", leftOpen && "has-left", chatOpen && "has-chat", compiler && "has-compiler"].filter(Boolean).join(" ");
+  const showCompiler = canAccess && lesson && compilerOpen;
 
   return (
-    <div className="learn">
-      <div className="learn__top">
-        <CourseTitle course={course} />
-        <div className="learn__nav">
-          <label htmlFor="learn-topic" className="sr-only">Konu seç</label>
-          <Select
-            id="learn-topic"
-            className="learn__topic"
-            value={lesson?.id}
-            onChange={selectLesson}
-            options={lessons.map((l, i) => ({ value: l.id, label: `${l.completed ? "✓ " : ""}Konu ${i + 1}: ${l.title}` }))}
-          />
-          {course.progress && <Progress className="learn__progress" percent={percent} size="small" strokeColor="var(--brand-solid)" aria-label="Kurs ilerlemesi" />}
+    <div className={`course-page ${showCompiler ? "has-compiler" : ""}`}>
+      <div className="course-page__main">
+        <div className="course-page__title">
+          <h1>{course.title}</h1>
+          <div className="course-page__tags">
+            <Tag color={LEVEL_COLOR[course.level]}>{LEVEL_LABEL[course.level]}</Tag>
+            <Tag>{course.category}</Tag>
+            <span className="muted"><Clock3 size={14} /> {formatDuration(course.totalMinutes)}</span>
+            <span className="muted"><MessageCircle size={14} /> {course.commentCount} yorum</span>
+          </div>
         </div>
-      </div>
 
-      {lesson ? (
-        <div className={stageClass}>
-          {leftOpen && (
-            <aside className="learn__panel learn__panel--left" aria-label="Kısa bilgi ve pratik">
-              <InfoPanel lesson={lesson} index={index} total={lessons.length} onClose={() => setLeftOpen(false)} onTryCode={openCompiler} />
-            </aside>
-          )}
-          <div className="learn__center">
-            <button
-              type="button"
-              className={`learn__orb learn__orb--left ${leftOpen ? "is-on" : ""}`}
-              onClick={() => setLeftOpen((v) => !v)}
-              aria-pressed={leftOpen}
-              aria-label="Kısa bilgi ve pratik panelini aç"
-            >
-              <img src={logo} alt="" />
-              <span>Bilgi &amp; Pratik</span>
-            </button>
-            {items.length ? (
-              <ReelPlayer
-                items={items}
-                index={reelIndex}
-                onIndex={setReelIndex}
-                onCompiler={(item) => openCompiler(item.starterCode, item.language)}
-                onAsk={ask}
-                endCard={endCard}
+        <div className="player-row">
+          <div className="player">
+            {!canAccess ? (
+              <>
+                <Cover image={course.coverImage} title={course.title} label={course.category} className="player__cover" />
+                <LockedNotice access={course.access} />
+              </>
+            ) : videoFile ? (
+              <video key={videoFile} src={videoFile} controls controlsList="nodownload" preload="metadata" title={lesson.title} />
+            ) : video ? (
+              <iframe
+                src={video}
+                title={lesson.title}
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
               />
             ) : (
-              <div className="reel">
-                <div className="reel__frame">
-                  <div className="reel__empty">
-                    <Cover image={course.coverImage} title={lesson.title} label="Bu konunun videosu henüz yok" className="reel__cover" />
-                  </div>
-                </div>
-              </div>
+              <Cover image={course.coverImage} title={course.title} label="Bu adımın videosu yok" className="player__cover" />
             )}
-            <button
-              type="button"
-              className={`learn__orb learn__orb--right ${chatOpen ? "is-on" : ""}`}
-              onClick={() => setChatOpen((v) => !v)}
-              aria-pressed={chatOpen}
-              aria-label="Codevia Asistan'ı aç"
-            >
-              <span className="learn__orb-bot"><Bot size={26} /></span>
-              <span>Asistan</span>
-            </button>
           </div>
-          {compiler && (
-            <aside className="learn__compiler" aria-label="Derleyici">
+          {showCompiler && (
+            <aside className="player-row__compiler" aria-label="Derleyici">
               <Suspense fallback={<Loading />}>
                 <CodeRunner
-                  key={compiler.n}
+                  key={lesson.id}
                   compact
-                  initialLanguage={compiler.language}
-                  initialCode={compiler.code || undefined}
-                  onClose={() => setCompiler(null)}
+                  initialLanguage={lesson.language || "python"}
+                  initialCode={lesson.codeExample || undefined}
+                  onClose={() => setCompilerOpen(false)}
                 />
               </Suspense>
             </aside>
           )}
-          {chatOpen && (
-            <aside className="learn__panel learn__panel--right" aria-label="Codevia Asistan">
-              <AssistantPanel lesson={lesson} seed={seed} onClose={() => setChatOpen(false)} />
-            </aside>
-          )}
         </div>
-      ) : (
-        <Empty description="Bu kursta henüz konu yok." />
-      )}
 
-      {lesson && (
-        <div className="course-page learn__below">
-          <div className="course-page__main">
-            <div className="lesson-bar">
-              <div>
-                <span className="muted small">Adım {index + 1} / {lessons.length}</span>
-                <h2>{lesson.title}</h2>
-              </div>
-              <div className="lesson-bar__actions">
-                <Button disabled={index <= 0} onClick={() => selectLesson(lessons[index - 1].id)}>Önceki</Button>
-                {course.progress && (
-                  <Button type={lesson.completed ? "default" : "primary"} loading={saving} onClick={toggleComplete}>
-                    {lesson.completed ? "Tamamlandı ✓" : "Tamamladım"}
-                  </Button>
-                )}
-                <Button disabled={!next} onClick={() => selectLesson(next.id)}>Sonraki</Button>
-              </div>
+        {canAccess && lesson && (
+          <div className="lesson-bar">
+            <div>
+              <span className="muted small">Adım {index + 1} / {lessons.length}</span>
+              <h2>{lesson.title}</h2>
             </div>
-            <Tabs
-              items={[
-                {
-                  key: "lesson",
-                  label: "Konu anlatımı",
-                  children: <div className="prose">{paragraphs(lesson.content).map((p, i) => <p key={i}>{p}</p>)}</div>,
-                },
-                { key: "about", label: "Kurs açıklaması", children: <div className="prose">{paragraphs(course.description).map((p, i) => <p key={i}>{p}</p>)}</div> },
-                {
-                  key: "comments",
-                  label: `Yorumlar (${course.commentCount})`,
-                  children: (
-                    <Comments
-                      courseId={id}
-                      canComment
-                      onCountChange={(n) => setData((d) => ({ course: { ...d.course, commentCount: d.course.commentCount + n } }))}
-                    />
-                  ),
-                },
-              ]}
-            />
+            <div className="lesson-bar__actions">
+              <Button icon={<Code2 size={16} />} type={compilerOpen ? "primary" : "default"} ghost={compilerOpen} onClick={() => setCompilerOpen((v) => !v)} aria-pressed={compilerOpen}>
+                {compilerOpen ? "Derleyiciyi kapat" : "Derleyici"}
+              </Button>
+              <Button icon={<Clapperboard size={16} />} onClick={() => openReels({ courseId: course.id, lessonId: lesson.id })}>Kısa videolar</Button>
+              <Button disabled={index <= 0} onClick={() => selectLesson(lessons[index - 1].id)}>Önceki</Button>
+              <Button type={lesson.completed ? "default" : "primary"} loading={saving} onClick={toggleComplete}>
+                {lesson.completed ? "Tamamlandı ✓" : "Tamamladım"}
+              </Button>
+              <Button disabled={index >= lessons.length - 1} onClick={() => selectLesson(lessons[index + 1].id)}>Sonraki</Button>
+            </div>
           </div>
-          <aside className="course-page__side">
-            {course.progress && (
-              <div className="progress-box">
-                <span>İlerlemen: kursun %{percent} kadarını tamamladın</span>
-                <Progress percent={percent} strokeColor="var(--brand-solid)" aria-label="Kurs ilerlemesi" />
-                <span className="muted small">{course.progress.completed} / {course.progress.total} adım tamamlandı</span>
-              </div>
-            )}
-            <h3>Kurs adımları</h3>
-            <LessonList lessons={lessons} currentId={lesson.id} canAccess onSelect={selectLesson} />
-            <FinalExamBox course={course} />
-          </aside>
-        </div>
-      )}
+        )}
+
+        <Tabs
+          items={[
+            {
+              key: "lesson",
+              label: canAccess ? "Bu adım" : "Kurs hakkında",
+              children: (
+                <div className="prose">
+                  {(canAccess && lesson?.content ? paragraphs(lesson.content) : paragraphs(course.description)).map((p, i) => (
+                    <p key={i}>{p}</p>
+                  ))}
+                </div>
+              ),
+            },
+            ...(canAccess
+              ? [{ key: "about", label: "Kurs açıklaması", children: <div className="prose">{paragraphs(course.description).map((p, i) => <p key={i}>{p}</p>)}</div> }]
+              : []),
+            { key: "comments", label: `Yorumlar (${course.commentCount})`, children: <Comments courseId={id} canComment={canAccess} onCountChange={(n) => setData((d) => ({ course: { ...d.course, commentCount: d.course.commentCount + n } }))} /> },
+          ]}
+        />
+      </div>
+
+      <aside className="course-page__side">
+        {course.progress && (
+          <div className="progress-box">
+            <span>İlerlemen: kursun %{percent} kadarını tamamladın</span>
+            <Progress percent={percent} strokeColor="var(--brand-solid)" aria-label="Kurs ilerlemesi" />
+            <span className="muted small">{course.progress.completed} / {course.progress.total} adım tamamlandı</span>
+          </div>
+        )}
+        <h3>Kurs adımları</h3>
+        <ol className="lesson-list">
+          {lessons.map((l, i) => (
+            <li key={l.id}>
+              <button
+                className={`lesson-list__item ${l.id === currentId && canAccess ? "is-active" : ""}`}
+                onClick={() => canAccess && selectLesson(l.id)}
+                disabled={!canAccess}
+              >
+                {canAccess ? (l.completed ? <CheckCircle2 className="ok" size={18} /> : <Circle size={18} />) : <Lock size={16} />}
+                <span className="lesson-list__title">{i + 1}. {l.title}</span>
+                <span className="muted small">{formatDuration(l.durationMinutes)}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        {canAccess && <FinalExamBox course={course} />}
+      </aside>
     </div>
   );
 }
-LearnView.propTypes = { course: PropTypes.object.isRequired, setData: PropTypes.func.isRequired };

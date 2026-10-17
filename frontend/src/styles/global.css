@@ -2162,33 +2162,6 @@ p a:not(.btn),
   padding-bottom: 12px;
 }
 
-.learn__top {
-  max-width: 1640px;
-  margin: 0 auto;
-  padding: 22px 20px 8px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 24px;
-}
-
-.learn__nav {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.learn__topic {
-  min-width: 280px;
-}
-
-.learn__progress {
-  width: 200px;
-  margin: 0 !important;
-}
-
 .learn__stage {
   max-width: 1640px;
   margin: 0 auto;
@@ -2852,10 +2825,6 @@ p a:not(.btn),
   margin: 0 12px 12px;
 }
 
-.learn__below {
-  padding-top: 8px;
-}
-
 /* Dar ekranlar: paneller videonun üstünde açılan çekmeceye dönüşür. */
 @media (max-width: 1820px) {
   .learn__stage.has-compiler .learn__panel {
@@ -2917,15 +2886,6 @@ p a:not(.btn),
     padding: 8px 8px 20px;
   }
 
-  .learn__topic {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .learn__nav {
-    width: 100%;
-  }
-
   .learn__center {
     width: 100%;
     justify-content: center;
@@ -2982,6 +2942,172 @@ p a:not(.btn),
   .learn__compiler {
     min-width: 0;
     height: 520px;
+  }
+}
+
+/* Kurs sayfası: ana videonun yanında derleyici */
+.course-page.has-compiler {
+  max-width: 1680px;
+  padding-left: 56px; /* soldaki Reels sekmesi videonun üstüne binmesin */
+}
+
+.course-page.has-compiler .player-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.course-page.has-compiler .player {
+  align-self: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.player-row__compiler {
+  min-height: 400px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  animation: learn-in 0.18s ease-out;
+}
+
+.player-row__compiler .runner {
+  flex: 1;
+  height: auto;
+}
+
+@media (max-width: 960px) {
+  .course-page.has-compiler {
+    padding-left: 16px;
+  }
+}
+
+@media (max-width: 1240px) {
+  .course-page.has-compiler .player-row {
+    grid-template-columns: 1fr;
+  }
+
+  .player-row__compiler {
+    height: 480px;
+  }
+}
+
+/* Reels: sayfanın solundaki sekme ve soldan açılan bölüm */
+.reels-tab {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 9px;
+  border: 0;
+  border-radius: 0 14px 14px 0;
+  background: linear-gradient(180deg, var(--brand-solid), #0a4a9c);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(5, 52, 113, 0.3);
+  transition: padding 0.15s ease;
+}
+
+.reels-tab span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.06em;
+}
+
+.reels-tab:hover,
+.reels-tab:focus-visible {
+  padding-left: 14px;
+}
+
+body.reels-lock {
+  overflow: hidden;
+}
+
+.reels-dock {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: auto;
+  background: var(--bg);
+  animation: reels-in 0.22s ease-out;
+}
+
+@keyframes reels-in {
+  from {
+    transform: translateX(-40px);
+    opacity: 0;
+  }
+}
+
+.reels-dock__bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.reels-dock__bar h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  color: var(--brand);
+}
+
+.reels-dock__body {
+  min-height: calc(100vh - 60px);
+}
+
+.reels-dock__body > .ant-empty {
+  padding: 80px 16px;
+}
+
+.reels-dock__pickers {
+  max-width: 1640px;
+  margin: 0 auto;
+  padding: 16px 20px 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.reels-dock__course {
+  min-width: 240px;
+}
+
+.reels-dock__topic {
+  min-width: 300px;
+}
+
+@media (max-width: 640px) {
+  .reels-tab {
+    top: auto;
+    bottom: 90px;
+    transform: none;
+  }
+
+  .reels-dock__course,
+  .reels-dock__topic {
+    min-width: 0;
+    width: 100%;
   }
 }
 
