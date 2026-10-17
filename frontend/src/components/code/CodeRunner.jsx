@@ -6,13 +6,21 @@ import { ChevronDown, ChevronUp, Globe, Laptop, Play, RotateCcw, X } from "lucid
 import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
+import { useApi } from "../../hooks/useApi";
 import { LANGUAGES, languageByKey } from "../../utils/languages";
 import { editorLanguage } from "./editorLanguage";
 import { runCode } from "./runCode";
 
-const options = [
+/** available: sunucuda gerçekten derlenebilen diller (null: bilinmiyor, hepsi gösterilir). */
+const languageOptions = (available) => [
   { label: "Tarayıcıda çalışır (internetsiz)", options: LANGUAGES.filter((l) => l.runtime === "browser").map((l) => ({ value: l.key, label: l.label })) },
-  { label: "Derleme servisinde çalışır (internet gerekir)", options: LANGUAGES.filter((l) => l.runtime === "server").map((l) => ({ value: l.key, label: l.label })) },
+  {
+    label: "Derleme servisinde çalışır (internet gerekir)",
+    options: LANGUAGES.filter((l) => l.runtime === "server").map((l) => {
+      const off = Array.isArray(available) && !available.includes(l.key);
+      return { value: l.key, label: off ? `${l.label} (şu an kullanılamıyor)` : l.label, disabled: off };
+    }),
+  },
 ];
 
 function ResultTables({ tables }) {
@@ -48,6 +56,8 @@ export default function CodeRunner({ initialLanguage, initialCode, onClose, onLa
   const [status, setStatus] = useState("");
   const [result, setResult] = useState(null);
   const runId = useRef(0);
+  const server = useApi("/code/languages");
+  const options = useMemo(() => languageOptions(server.data?.enabled === false ? [] : server.data?.server), [server.data]);
 
   const lang = languageByKey(language);
   const code = codes[language] ?? lang.starter;

@@ -107,12 +107,16 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | Alan seçimi | Bir kursun testini geçen öğrenci yazılım alanını seçer (frontend, backend, mobil, yapay zeka, veri bilimi, siber güvenlik, IoT, oyun) ve o alanın görsel yol haritasını görür; alanı sonra değiştirebilir | Alanlar ve aşamalar: `backend/src/data/careers.js` |
 | Puanlama | Doğru / toplam soru; boş bırakılan yanlış sayılır | `backend/src/services/exams.js` |
 | Yorumlar | Kursa erişimi olan öğrenci yazar, anında yayınlanır; sahibi veya admin siler | `backend/src/routes/courses.js` |
+| Öğrenme ekranı | Ortada konunun kısa videoları (önce ders videosu, sonra eklenen reels). Soldaki yuvarlak Codevia logosu "kısa bilgi + pratik" panelini, sağdaki asistan düğmesi Codevia Asistan'ı açar; videonun yanındaki düğme o videonun dilinde derleyiciyi açar. Pratik soruları ilerlemeyi etkilemez | Admin › Kurs düzenleme › Ders "Düzenle" (Kısa bilgi, Pratik) ve "Kısa videolar" |
+| Derleyici | JavaScript, Python, HTML/CSS ve SQL öğrencinin tarayıcısında, internetsiz çalışır. Diğer diller (C, C++, C#, Java, Go, Rust, PHP, Ruby…) kodu ücretsiz Wandbox derleme servisine gönderir; bunun için giriş yapmak gerekir (öğrenci başına dakikada 20 çalıştırma) | `CODE_RUNNER_URL` (`off` kapatır) |
+| Codevia Asistan | `ANTHROPIC_API_KEY` verilince açılır (ücretli). O anki konunun özetini bilir; sadece yazılım konularında, Türkçe ve ipucu vererek cevaplar; öğrenci başına 10 dakikada 30 soru. Sohbetler kaydedilmez | `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` |
+| Tema | Menüdeki ay/güneş düğmesi karanlık ve aydınlık mod arasında geçer; seçim tarayıcıda hatırlanır, ilk açılışta cihazın ayarı kullanılır | `frontend/src/context/ThemeContext.jsx` |
 
 ## Ekranlar
 
-**Öğrenci:** Ana sayfa, kurs listesi (arama, kategori, sınıf filtresi), kurs sayfası (video, adım listesi, ilerleme, açıklama, yorumlar), seviye sınavı, kurs sonu testi, alan seçimi ve görsel kariyer yol haritası, yol haritası blogu ve yazı detayı, kayıt (isim, soyisim, e-posta, doğum tarihi, okul), giriş, şifremi unuttum / şifre sıfırlama, profil (sınıf bilgisi, sınav geçmişi, bilgi ve şifre değiştirme).
+**Öğrenci:** Ana sayfa, kurs listesi (arama, kategori, sınıf filtresi), öğrenme ekranı (ortada reels, açılır kısa bilgi + pratik paneli, Codevia Asistan, videonun yanında derleyici, adım listesi, ilerleme, açıklama, yorumlar), derleyici sayfası (dil listesi, kod yazma, çalıştırma), seviye sınavı, kurs sonu testi, alan seçimi ve görsel kariyer yol haritası, yol haritası blogu ve yazı detayı, kayıt (isim, soyisim, e-posta, doğum tarihi, okul), giriş, şifremi unuttum / şifre sıfırlama, profil (sınıf bilgisi, sınav geçmişi, bilgi ve şifre değiştirme).
 
-**Admin (`/admin`):** İstatistikler (kurs, blog, öğrenci sayıları, Alpha/Beta dağılımı, sınav puanları, okullar, son 30 gün kayıtlar, kurs bazında öğrenci ve final sonuçları), kurs ekle / düzenle / sil / yayınla-gizle (başlıklar listeden de düzenlenir) ve ders yönetimi (video, sıralama), videolar sayfası (tüm derslerin videoları: bilgisayardan video yükleme (MP4/WEBM/OGG, en fazla 1 GB) veya YouTube/Vimeo bağlantısı, izleme, değiştirme, silme, ders başlığını değiştirme; kaldırılan video dosyaları diskten de silinir), blog ekle / düzenle / sil / yayınla-gizle (görsel yükleme), seviye ve final sınavı yönetimi (soru ekle / düzenle / sil, doğru cevap, yayınla), üyeler (arama, sınıf/rol filtresi, sınıf ve rol değiştirme, üye detayı: bilgiler, kurs ilerlemesi, sınav sonuçları, seçtiği alan; isim/okul düzenleme, üye silme), yorum moderasyonu.
+**Admin (`/admin`):** İstatistikler (kurs, blog, öğrenci sayıları, Alpha/Beta dağılımı, sınav puanları, okullar, son 30 gün kayıtlar, kurs bazında öğrenci ve final sonuçları), kurs ekle / düzenle / sil / yayınla-gizle (başlıklar listeden de düzenlenir) ve ders yönetimi (video, sıralama, kısa ve net maddeler, örnek kod, derleyici dili, pratik soruları, kısa videolar), videolar sayfası (tüm derslerin videoları: bilgisayardan video yükleme (MP4/WEBM/OGG, en fazla 1 GB) veya YouTube/Vimeo bağlantısı, izleme, değiştirme, silme, ders başlığını değiştirme; kaldırılan video dosyaları diskten de silinir), blog ekle / düzenle / sil / yayınla-gizle (görsel yükleme), seviye ve final sınavı yönetimi (soru ekle / düzenle / sil, doğru cevap, yayınla), üyeler (arama, sınıf/rol filtresi, sınıf ve rol değiştirme, üye detayı: bilgiler, kurs ilerlemesi, sınav sonuçları, seçtiği alan; isim/okul düzenleme, üye silme), yorum moderasyonu.
 
 ## API özeti
 
@@ -130,8 +134,12 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | GET | `/api/blog` · `/api/blog/:id` | Yayındaki blog yazıları |
 | GET/PUT | `/api/career` | Alan listesi ve seçim hakkı / alan seçimi (final testi geçilmiş olmalı) |
 | GET | `/api/career/:key` | Bir alanın yol haritası |
+| GET/POST | `/api/code/languages` · `/api/code/run` | Sunucuda derlenen diller ve kodu çalıştırma (giriş gerekir) |
+| GET/POST | `/api/assistant/status` · `/api/assistant/chat` | Codevia Asistan açık mı, soru sor (giriş gerekir) |
 | * | `/api/admin/...` | Kurs, ders, blog, sınav, soru, kullanıcı, yorum, istatistik ve görsel yükleme (sadece admin) |
 
 ## Ortam değişkenleri
 
 Tam liste ve açıklamalar `backend/.env.example`, `frontend/.env.example` ve (Docker için) kök klasördeki `.env.example` dosyalarında. Şifre sıfırlama e-postası için `SMTP_*` değişkenlerini doldurun; boş bırakılırsa yerel kurulumda sıfırlama bağlantısı sunucu loguna yazılır. `TRUST_PROXY`, önündeki ters vekil sayısıdır (varsayılan 1).
+
+Codevia Asistan için [console.anthropic.com](https://console.anthropic.com) üzerinden bir API anahtarı alıp `ANTHROPIC_API_KEY` olarak verin; kullanım başına ücretlendirilir. Anahtar yoksa asistan paneli "henüz ayarlanmadı" der, sitenin geri kalanı etkilenmez. Derleyicideki sunucu dilleri varsayılan olarak `https://wandbox.org` adresine gider; kendi Wandbox kurulumunuz varsa `CODE_RUNNER_URL` ile adresini verin, `CODE_RUNNER_URL=off` bu dilleri kapatır (tarayıcıda çalışan diller yine çalışır).

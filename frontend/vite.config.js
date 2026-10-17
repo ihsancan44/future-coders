@@ -17,10 +17,12 @@ const MIME = { ".mjs": "text/javascript", ".js": "text/javascript", ".wasm": "ap
 
 function codeRuntimes() {
   let outDir = "dist";
+  let building = false;
   return {
     name: "codevia-code-runtimes",
     configResolved(config) {
       outDir = path.resolve(config.root, config.build.outDir);
+      building = config.command === "build" && !process.env.VITEST;
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
@@ -32,6 +34,7 @@ function codeRuntimes() {
       });
     },
     closeBundle() {
+      if (!building) return;
       for (const [prefix, group] of Object.entries(runtimeFiles)) {
         fs.mkdirSync(path.join(outDir, prefix), { recursive: true });
         for (const name of group.files) fs.copyFileSync(path.resolve(group.dir, name), path.join(outDir, prefix, name));
