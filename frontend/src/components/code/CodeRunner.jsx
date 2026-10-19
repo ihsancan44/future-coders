@@ -9,6 +9,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useApi } from "../../hooks/useApi";
 import { LANGUAGES, languageByKey } from "../../utils/languages";
 import { editorLanguage } from "./editorLanguage";
+import { editorA11y } from "./editorTheme";
 import { runCode } from "./runCode";
 
 /** available: sunucuda gerçekten derlenebilen diller (null: bilinmiyor, hepsi gösterilir). */
@@ -62,6 +63,7 @@ export default function CodeRunner({ initialLanguage, initialCode, onClose, onAs
 
   const lang = languageByKey(language);
   const code = codes[language] ?? lang.starter;
+  const allExtensions = useMemo(() => [...extensions, ...editorA11y(`${lang.label} kodu`, mode)], [extensions, lang.label, mode]);
 
   // Yeni bir video ya da örnek kod açılınca editör o kodla yeniden başlar.
   useEffect(() => {
@@ -159,10 +161,9 @@ export default function CodeRunner({ initialLanguage, initialCode, onClose, onAs
         <CodeMirror
           value={code}
           onChange={(v) => setCodes((c) => ({ ...c, [language]: v }))}
-          extensions={extensions}
+          extensions={allExtensions}
           theme={mode === "dark" ? "dark" : "light"}
           basicSetup={{ foldGutter: false, highlightActiveLineGutter: true }}
-          aria-label={`${lang.label} kodu`}
           height="100%"
         />
       </div>

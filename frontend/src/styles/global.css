@@ -1964,6 +1964,12 @@ p a:not(.btn),
 /* Boş tablo mesajı ("Henüz ... yok") okunabilir olsun. */
 :root:not([data-theme="dark"]) body .ant-table-wrapper .ant-table-tbody > tr.ant-table-placeholder > td,
 :root:not([data-theme="dark"]) body .ant-empty-description { color: rgba(0, 0, 0, 0.65); }
+:root[data-theme="dark"] body .ant-table-wrapper .ant-table-tbody > tr.ant-table-placeholder > td,
+:root[data-theme="dark"] body .ant-empty-description { color: rgba(255, 255, 255, 0.65); }
+/* Karanlık modda "Sil" gibi kırmızı çerçeveli düğmelerin yazısı koyu zeminde okunsun. */
+:root[data-theme="dark"] .ant-btn-dangerous.ant-btn-default:not(:disabled),
+:root[data-theme="dark"] .ant-btn-dangerous.ant-btn-text:not(:disabled),
+:root[data-theme="dark"] .ant-btn-dangerous.ant-btn-link:not(:disabled) { color: #ff8aa3; }
 
 /* ---------- Derleyici ---------- */
 .compiler-page {
