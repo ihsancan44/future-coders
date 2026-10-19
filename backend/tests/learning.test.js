@@ -167,13 +167,14 @@ describe("Codevia Asistan", () => {
     expect(ok.status).toBe(200);
     expect(ok.body.reply).toMatch(/return/);
     expect(assistant.askAssistant.mock.calls.at(-1)[0].system).toContain(course.lessons[0].title);
+    expect(assistant.askAssistant.mock.calls.at(-1)[0].system).toMatch(/genel kodlama sorularına/);
 
     await chat(beta.auth, { lessonId: course.lessons[0].id, messages: [{ role: "user", content: "return nedir?" }] });
     expect(assistant.askAssistant.mock.calls.at(-1)[0].system).not.toContain(course.lessons[0].title);
 
     expect((await api().post("/api/assistant/chat").send({ messages: [{ role: "user", content: "x" }] })).status).toBe(401);
     expect((await chat(alpha.auth, { messages: [{ role: "assistant", content: "x" }] })).status).toBe(400);
-    expect((await chat(alpha.auth, { messages: [{ role: "user", content: "a".repeat(2001) }] })).status).toBe(400);
+    expect((await chat(alpha.auth, { messages: [{ role: "user", content: "a".repeat(4001) }] })).status).toBe(400);
     assistant.assistantEnabled.mockReturnValue(false);
   });
 });

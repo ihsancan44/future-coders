@@ -1,24 +1,28 @@
 import { lazy, Suspense, useState } from "react";
 import PropTypes from "prop-types";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert, Button, Empty, Input, Popconfirm, Progress, Tabs, Tag } from "antd";
 import { message } from "../utils/feedback";
-import { CheckCircle2, Circle, Clapperboard, Clock3, Code2, Lock, MessageCircle, Trash2 } from "lucide-react";
+import { Bot, CheckCircle2, Circle, Clapperboard, Clock3, Code2, Lock, MessageCircle, Trash2 } from "lucide-react";
 import { api, apiError, assetUrl } from "../api/client";
 import Cover from "../components/Cover";
 import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
 import { useReels } from "../context/ReelsContext";
+import AssistantPanel from "../components/learn/AssistantPanel";
+import { codeQuestion } from "../utils/assistant";
 import { LEVEL_COLOR, LEVEL_LABEL, embedUrl, formatDate, formatDuration, isVideoFile, paragraphs } from "../utils/format";
 
 const CodeRunner = lazy(() => import("../components/code/CodeRunner"));
 
 function LockedNotice({ access }) {
+  const location = useLocation();
+  const from = location.pathname + location.search;
   const actions = {
     LOGIN_REQUIRED: (
       <>
-        <Link to="/login" className="btn btn--primary btn--sm">Giriş yap</Link>
+        <Link to="/login" state={{ from }} className="btn btn--primary btn--sm">Giriş yap</Link>
         <Link to="/register" className="btn btn--ghost btn--sm">Kayıt ol</Link>
       </>
     ),
@@ -152,6 +156,8 @@ export default function CourseDetail() {
   const { data, error, loading, reload, setData } = useApi(`/courses/${id}`);
   const [saving, setSaving] = useState(false);
   const [compilerOpen, setCompilerOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [seed, setSeed] = useState(null);
   const { openReels } = useReels();
 
   if (loading) return <Loading />;
@@ -233,7 +239,11 @@ export default function CourseDetail() {
                   compact
                   initialLanguage={lesson.language || "python"}
                   initialCode={lesson.codeExample || undefined}
-                  onClose={() => setCompilerOpen(false)}
+                  onAsk={(info) => {
+                  setChatOpen(true);
+                  setSeed({ text: codeQuestion(info), n: Date.now() });
+                }}
+                onClose={() => setCompilerOpen(false)}
                 />
               </Suspense>
             </aside>
@@ -307,6 +317,19 @@ export default function CourseDetail() {
         </ol>
         {canAccess && <FinalExamBox course={course} />}
       </aside>
+
+      {canAccess && lesson && !chatOpen && (
+        <button type="button" className="learn__orb course-chat-orb" onClick={() => setChatOpen(true)} aria-label="Codevia Asistan'ı aç">
+          <span className="learn__orb-bot"><Bot size={26} /></span>
+          <span>Asistan</span>
+        </button>
+      )}
+      {/* Kapatınca gizlenir ama sohbet silinmez. */}
+      {canAccess && lesson && (
+        <aside className="course-chat" aria-label="Codevia Asistan" hidden={!chatOpen}>
+          <AssistantPanel lesson={lesson} seed={seed} onClose={() => setChatOpen(false)} />
+        </aside>
+      )}
     </div>
   );
 }

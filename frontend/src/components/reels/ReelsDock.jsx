@@ -88,10 +88,6 @@ export default function ReelsDock() {
   };
 
   useEffect(() => {
-    closeReels();
-  }, [pathname, closeReels]);
-
-  useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => e.key === "Escape" && !document.querySelector(".ant-select-open") && closeReels();
     window.addEventListener("keydown", onKey);
@@ -121,7 +117,7 @@ export default function ReelsDock() {
               <ReelsBody key={n} initialCourseId={courseId} initialLessonId={lessonId} />
             ) : (
               <Empty description="Kısa videoları izlemek için giriş yapmalısın.">
-                <Link to="/login" className="btn btn--primary btn--sm">Giriş yap</Link>
+                <Link to="/login" state={{ from: pathname + search }} className="btn btn--primary btn--sm">Giriş yap</Link>
               </Empty>
             )}
           </div>
