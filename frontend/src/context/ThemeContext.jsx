@@ -41,6 +41,8 @@ const themes = {
     token: {
       ...shared,
       colorPrimary: "#2563c9",
+      // Üzerine gelince açılan ton beyaz yazıyla 4.5:1 kontrastı korusun.
+      colorPrimaryHover: "#3a6dc0",
       colorLink: "#7fb0ff",
       colorError: "#ff5c7f",
       colorBgBase: "#0b1222",
@@ -51,7 +53,11 @@ const themes = {
       colorTextTertiary: "rgba(255, 255, 255, 0.65)",
       colorTextDescription: "rgba(255, 255, 255, 0.65)",
     },
-    components: { Menu: { itemSelectedBg: "#1d2b4d", itemSelectedColor: "#9cc2ff", darkItemBg: "#0f182c" } },
+    components: {
+      Menu: { itemSelectedBg: "#1d2b4d", itemSelectedColor: "#9cc2ff", darkItemBg: "#0f182c" },
+      // Seçili sekme yazısı koyu zeminde okunsun (varsayılan mavi 2.7:1 kalıyordu).
+      Tabs: { itemSelectedColor: "#9cc2ff", itemHoverColor: "#b8d3ff", itemActiveColor: "#9cc2ff", inkBarColor: "#9cc2ff" },
+    },
   },
 };
 
