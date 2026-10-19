@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { Button, Input, Select, Tag, Tooltip } from "antd";
 import CodeMirror from "@uiw/react-codemirror";
-import { ChevronDown, ChevronUp, Globe, Laptop, Play, RotateCcw, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Bot, ChevronDown, ChevronUp, Globe, Laptop, Play, RotateCcw, X } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useApi } from "../../hooks/useApi";
@@ -44,7 +44,7 @@ function ResultTables({ tables }) {
  * Dil seçmeli kod editörü ve çalıştırıcı. Her dilin kodu ayrı tutulur: dil değiştirip geri gelince yazdığın kod durur.
  * `initialCode` verilirse başlangıç dilinin kodu odur (örn. bir videonun başlangıç kodu).
  */
-export default function CodeRunner({ initialLanguage, initialCode, onClose, onLanguageChange, title, compact = false }) {
+export default function CodeRunner({ initialLanguage, initialCode, onClose, onAsk, onLanguageChange, title, compact = false }) {
   const { mode } = useTheme();
   const { user } = useAuth();
   const [language, setLanguage] = useState(languageByKey(initialLanguage) ? initialLanguage : "python");
@@ -56,6 +56,7 @@ export default function CodeRunner({ initialLanguage, initialCode, onClose, onLa
   const [status, setStatus] = useState("");
   const [result, setResult] = useState(null);
   const runId = useRef(0);
+  const location = useLocation();
   const server = useApi("/code/languages");
   const options = useMemo(() => languageOptions(server.data?.enabled === false ? [] : server.data?.server), [server.data]);
 
@@ -141,6 +142,16 @@ export default function CodeRunner({ initialLanguage, initialCode, onClose, onLa
             Çalıştır
           </Button>
         </Tooltip>
+        {onAsk && (
+          <Tooltip title="Kodunu ve çıktısını Codevia Asistan'a sor">
+            <Button
+              icon={<Bot size={16} />}
+              aria-label="Kodu Asistan'a sor"
+              disabled={!code.trim()}
+              onClick={() => onAsk({ label: lang.label, editor: lang.editor, code, output })}
+            />
+          </Tooltip>
+        )}
         {onClose && <Button type="text" icon={<X size={16} />} aria-label="Derleyiciyi kapat" onClick={onClose} />}
       </div>
 
@@ -182,7 +193,7 @@ export default function CodeRunner({ initialLanguage, initialCode, onClose, onLa
         </div>
         {needsLogin ? (
           <p className="runner__hint">
-            {lang.label} kodu derleme servisinde çalışır. Çalıştırmak için <Link to="/login">giriş yap</Link>.
+            {lang.label} kodu derleme servisinde çalışır. Çalıştırmak için <Link to="/login" state={{ from: location.pathname + location.search }}>giriş yap</Link>.
           </p>
         ) : status || running ? (
           <p className="runner__hint">{status || "Çalışıyor…"}</p>
@@ -212,6 +223,7 @@ CodeRunner.propTypes = {
   initialLanguage: PropTypes.string,
   initialCode: PropTypes.string,
   onClose: PropTypes.func,
+  onAsk: PropTypes.func,
   onLanguageChange: PropTypes.func,
   title: PropTypes.node,
   compact: PropTypes.bool,

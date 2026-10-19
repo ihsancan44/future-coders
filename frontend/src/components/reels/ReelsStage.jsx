@@ -8,6 +8,7 @@ import ReelPlayer from "../learn/ReelPlayer";
 import AssistantPanel from "../learn/AssistantPanel";
 import { Loading } from "../Status";
 import logo from "../../assets/logo.svg";
+import { codeQuestion } from "../../utils/assistant";
 
 const CodeRunner = lazy(() => import("../code/CodeRunner"));
 
@@ -30,6 +31,11 @@ export default function ReelsStage({ course, lesson, index, onNext }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [compiler, setCompiler] = useState(null);
   const [seed, setSeed] = useState(null);
+  // Asistan bir kez açıldıktan sonra kapatılınca sadece gizlenir, sohbet silinmez.
+  const [chatUsed, setChatUsed] = useState(false);
+  useEffect(() => {
+    if (chatOpen) setChatUsed(true);
+  }, [chatOpen]);
   const [reelIndex, setReelIndex] = useState(0);
   const items = useMemo(() => reelItems(lesson), [lesson]);
   const total = course.lessons.length;
@@ -49,6 +55,10 @@ export default function ReelsStage({ course, lesson, index, onNext }) {
   const ask = (item) => {
     setChatOpen(true);
     setSeed({ text: `"${item.title}" videosunda anlamadığım yer: `, n: Date.now() });
+  };
+  const askCode = (info) => {
+    setChatOpen(true);
+    setSeed({ text: codeQuestion(info), n: Date.now() });
   };
 
   const endCard = (
@@ -113,12 +123,19 @@ export default function ReelsStage({ course, lesson, index, onNext }) {
       {compiler && (
         <aside className="learn__compiler" aria-label="Derleyici">
           <Suspense fallback={<Loading />}>
-            <CodeRunner key={compiler.n} compact initialLanguage={compiler.language} initialCode={compiler.code || undefined} onClose={() => setCompiler(null)} />
+            <CodeRunner
+              key={compiler.n}
+              compact
+              initialLanguage={compiler.language}
+              initialCode={compiler.code || undefined}
+              onAsk={askCode}
+              onClose={() => setCompiler(null)}
+            />
           </Suspense>
         </aside>
       )}
-      {chatOpen && (
-        <aside className="learn__panel learn__panel--right" aria-label="Codevia Asistan">
+      {chatUsed && (
+        <aside className="learn__panel learn__panel--right" aria-label="Codevia Asistan" hidden={!chatOpen}>
           <AssistantPanel lesson={lesson} seed={seed} onClose={() => setChatOpen(false)} />
         </aside>
       )}

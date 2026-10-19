@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { Button, Input } from "antd";
 import { Bot, RotateCcw, Send, X } from "lucide-react";
@@ -7,9 +7,18 @@ import { useApi } from "../../hooks/useApi";
 import RichText from "../RichText";
 
 const CHIPS = ["Daha basit anlat", "Bir örnek daha ver", "Bana bir soru sor"];
+// Sohbet boşken: biri hemen sorar, diğerleri soru kutusunu başlatır.
+const STARTERS = [
+  { label: "Bu konuyu kısaca anlat", send: true },
+  { label: "Kodumda hata var", text: "Şu kodum hata veriyor:\n```\n\n```\nHata mesajı: " },
+  { label: "Genel bir kodlama sorum var", text: "" },
+];
 const MAX_TURNS = 20;
 
-/** Sağ panel: Codevia Asistan. Sorular o anki konunun özetiyle birlikte sunucuya gider. */
+/**
+ * Codevia Asistan sohbet paneli. Videoda/konuda anlaşılmayan yerleri ve genel kodlama sorularını yanıtlar;
+ * sorular o anki dersin özetiyle birlikte sunucuya gider.
+ */
 export default function AssistantPanel({ lesson, seed, onClose }) {
   const status = useApi("/assistant/status");
   const [messages, setMessages] = useState([]);
@@ -18,6 +27,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
   const [error, setError] = useState(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+  const inputId = useId();
 
   // Bir videonun "Sor" düğmesine basılınca soru kutusu o videoyla doldurulur.
   useEffect(() => {
@@ -41,7 +51,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
     setError(null);
     setSending(true);
     try {
-      const { data } = await api.post("/assistant/chat", { lessonId: lesson.id, messages: history });
+      const { data } = await api.post("/assistant/chat", { lessonId: lesson?.id, messages: history });
       setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
     } catch (err) {
       const e = apiError(err);
@@ -62,7 +72,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
         <span className="assistant__bot" aria-hidden="true"><Bot size={20} /></span>
         <div>
           <strong>Codevia Asistan</strong>
-          <small>Takıldığın yeri sor</small>
+          <small>Videoda ya da kodunda takıldığın yeri sor</small>
         </div>
         {messages.length > 0 && (
           <Button type="text" icon={<RotateCcw size={16} />} onClick={() => setMessages([])} aria-label="Yeni sohbet" title="Yeni sohbet" />
@@ -70,7 +80,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
         <Button type="text" icon={<X size={18} />} onClick={onClose} aria-label="Asistanı kapat" />
       </div>
       <p className="assistant__ctx">
-        Şu an: <b>{lesson.title}</b> konusu
+        {lesson ? <>Şu an: <b>{lesson.title}</b> konusu. </> : null}Genel kodlama sorularını da sorabilirsin.
       </p>
       <div className="assistant__msgs" ref={listRef} aria-live="polite">
         {status.loading ? null : !enabled ? (
@@ -78,11 +88,34 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
             Asistan henüz ayarlanmadı. Yöneticinin sunucuya bir Anthropic API anahtarı eklemesi gerekiyor. O zamana kadar sorularını konu yorumlarına yazabilirsin.
           </p>
         ) : messages.length === 0 ? (
-          <p className="assistant__hello">Merhaba! Bu konuda anlamadığın bir şey varsa yaz, birlikte bakalım. Cevabı hemen vermek yerine düşünmene yardım ederim. 🙂</p>
+          <div className="assistant__hello">
+            <p>
+              Merhaba! Videoda anlamadığın bir yer mi var, yoksa kodun mu çalışmıyor? Yaz, birlikte bakalım. Hata veren kodunu ve hata mesajını
+              yapıştırabilirsin. Pratik sorularında cevabı hemen vermem, düşünmene yardım ederim. 🙂
+            </p>
+            <div className="assistant__chips assistant__chips--start">
+              {STARTERS.map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  disabled={sending}
+                  onClick={() => {
+                    if (c.send) send(c.label);
+                    else {
+                      setText(c.text);
+                      inputRef.current?.focus();
+                    }
+                  }}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           messages.map((m, i) => (
             <div key={i} className={`assistant__msg assistant__msg--${m.role}`}>
-              {m.role === "assistant" ? <RichText text={m.content} /> : m.content}
+              <RichText text={m.content} />
             </div>
           ))
         )}
@@ -95,6 +128,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
       {error && <p className="assistant__error" role="alert">{error}</p>}
       {enabled && (
         <>
+          {messages.length > 0 && (
           <div className="assistant__chips">
             {CHIPS.map((c) => (
               <button key={c} type="button" onClick={() => send(c)} disabled={sending || messages.length === 0}>
@@ -102,6 +136,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
               </button>
             ))}
           </div>
+          )}
           <form
             className="assistant__input"
             onSubmit={(e) => {
@@ -109,9 +144,9 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
               send(text);
             }}
           >
-            <label htmlFor="assistant-text" className="sr-only">Sorun</label>
+            <label htmlFor={inputId} className="sr-only">Sorun</label>
             <Input.TextArea
-              id="assistant-text"
+              id={inputId}
               ref={inputRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -123,7 +158,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
               }}
               placeholder="Sorunu yaz…"
               autoSize={{ minRows: 1, maxRows: 4 }}
-              maxLength={2000}
+              maxLength={4000}
             />
             <Button type="primary" danger htmlType="submit" icon={<Send size={16} />} loading={sending} disabled={!text.trim()} aria-label="Gönder" />
           </form>
@@ -134,7 +169,7 @@ export default function AssistantPanel({ lesson, seed, onClose }) {
 }
 
 AssistantPanel.propTypes = {
-  lesson: PropTypes.object.isRequired,
+  lesson: PropTypes.object,
   seed: PropTypes.shape({ text: PropTypes.string }),
   onClose: PropTypes.func.isRequired,
 };
