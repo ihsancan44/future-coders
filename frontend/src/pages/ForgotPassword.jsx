@@ -4,8 +4,10 @@ import { Alert, Button, Form, Input } from "antd";
 import AuthCard from "../components/AuthCard";
 import { api } from "../api/client";
 import { applyApiErrors } from "../utils/forms";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function ForgotPassword() {
+  usePageMeta({ title: "Şifremi unuttum", noindex: true });
   const [form] = Form.useForm();
   const [done, setDone] = useState(null);
   const [error, setError] = useState(null);

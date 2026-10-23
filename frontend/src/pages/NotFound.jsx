@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { Result } from "antd";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function NotFound() {
+  usePageMeta({ title: "Sayfa bulunamadı", noindex: true });
   return (
     <Result
       status="404"

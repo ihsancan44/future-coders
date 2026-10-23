@@ -6,6 +6,8 @@ import CourseCard from "../components/CourseCard";
 import { Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { PAGES } from "../seo/pages";
 
 const steps = [
   { icon: GraduationCap, title: "Kayıt ol", text: "İsim, okul ve doğum tarihinle ücretsiz hesabını aç." },
@@ -14,21 +16,9 @@ const steps = [
 ];
 
 const faq = [
-  {
-    key: "1",
-    label: "Amacımız ne?",
-    children: <p>Lise öğrencilerinin üniversiteye başlamadan yazılımla tanışmasını, temel programlama becerilerini kazanmasını ve bu alanı gerçekten sevip sevmediğini erkenden görmesini sağlamak.</p>,
-  },
-  {
-    key: "2",
-    label: "Alpha ve Beta sınıfları ne demek?",
-    children: <p>Kayıttan sonra girdiğin seviye sınavı seni bir sınıfa yerleştirir. Alpha başlangıç, Beta ileri sınıftır. Her sınıf kendi seviyesine uygun kursları ve herkese açık kursları görür.</p>,
-  },
-  {
-    key: "3",
-    label: "Kurslar ücretli mi?",
-    children: <p>Hayır. Kayıt olan her öğrenci, sınıfına açık tüm kurslara ve final sınavlarına ücretsiz erişir.</p>,
-  },
+  { question: "Amacımız ne?", answer: "Lise öğrencilerinin üniversiteye başlamadan yazılımla tanışmasını, temel programlama becerilerini kazanmasını ve bu alanı gerçekten sevip sevmediğini erkenden görmesini sağlamak." },
+  { question: "Alpha ve Beta sınıfları ne demek?", answer: "Kayıttan sonra girdiğin seviye sınavı seni bir sınıfa yerleştirir. Alpha başlangıç, Beta ileri sınıftır. Her sınıf kendi seviyesine uygun kursları ve herkese açık kursları görür." },
+  { question: "Kurslar ücretli mi?", answer: "Hayır. Kayıt olan her öğrenci, sınıfına açık tüm kurslara ve final sınavlarına ücretsiz erişir." },
 ];
 
 function CourseRow({ title, sort }) {
@@ -51,7 +41,38 @@ function CourseRow({ title, sort }) {
 }
 CourseRow.propTypes = { title: PropTypes.string.isRequired, sort: PropTypes.string.isRequired };
 
+// Sık sorulan sorular arama sonuçlarında da gösterilebilsin diye yapılandırılmış veri olarak verilir.
+function homeJsonLd() {
+  const origin = window.location.origin;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "EducationalOrganization",
+        "@id": `${origin}/#organization`,
+        name: "Codevia",
+        url: `${origin}/`,
+        logo: `${origin}/apple-touch-icon.png`,
+        description: PAGES["/"].description,
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${origin}/#website`,
+        name: "Codevia",
+        url: `${origin}/`,
+        inLanguage: "tr-TR",
+        publisher: { "@id": `${origin}/#organization` },
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faq.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
+      },
+    ],
+  };
+}
+
 export default function Home() {
+  usePageMeta({ ...PAGES["/"], jsonLd: homeJsonLd() });
   const { user } = useAuth();
   const cta = !user ? { to: "/register", label: "Hemen kayıt ol" } : !user.level && user.role !== "ADMIN" ? { to: "/placement", label: "Seviye sınavına başla" } : { to: "/courses", label: "Kurslara git" };
   return (
@@ -73,7 +94,7 @@ export default function Home() {
           <div key={title} className="step">
             <span className="step__num">{i + 1}</span>
             <Icon />
-            <h3>{title}</h3>
+            <h2>{title}</h2>
             <p>{text}</p>
           </div>
         ))}
@@ -86,7 +107,10 @@ export default function Home() {
 
       <section className="section section--narrow">
         <h2>Hakkımızda</h2>
-        <Collapse items={faq} defaultActiveKey={["1"]} />
+        <Collapse
+          items={faq.map((f, i) => ({ key: String(i + 1), label: f.question, children: <p>{f.answer}</p>, forceRender: true }))}
+          defaultActiveKey={["1"]}
+        />
       </section>
     </>
   );

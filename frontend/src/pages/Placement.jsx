@@ -8,6 +8,7 @@ import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
 import { LEVEL_DESC, LEVEL_LABEL } from "../utils/format";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export function LevelResult({ attempt, level }) {
   return (
@@ -30,6 +31,7 @@ export function LevelResult({ attempt, level }) {
 LevelResult.propTypes = { attempt: PropTypes.object, level: PropTypes.string };
 
 export default function Placement() {
+  usePageMeta({ title: "Seviye sınavı", noindex: true });
   const { user, setUser, isAdmin } = useAuth();
   const location = useLocation();
   const { data, error, loading, reload } = useApi(isAdmin ? null : "/exams/placement");

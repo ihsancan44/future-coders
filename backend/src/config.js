@@ -51,6 +51,8 @@ export const config = {
   clientUrls,
   /** E-postadaki bağlantıların adresi: CLIENT_URL'deki ilk adres. */
   publicUrl: clientUrls[0],
+  /** Sitenin arama motorlarına bildirilen asıl adresi (sitemap.xml, robots.txt). Verilmezse CLIENT_URL'deki ilk adres. */
+  siteUrl: (process.env.SITE_URL || "").trim().replace(/\/+$/, "") || clientUrls[0],
   trustProxy: trustProxy(),
   uploadDir: process.env.UPLOAD_DIR || fileURLToPath(new URL("../uploads", import.meta.url)),
   smtp: {

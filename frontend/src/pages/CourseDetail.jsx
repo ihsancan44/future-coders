@@ -10,11 +10,36 @@ import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
 import { useReels } from "../context/ReelsContext";
+import { usePageMeta } from "../hooks/usePageMeta";
 import AssistantPanel from "../components/learn/AssistantPanel";
 import { codeQuestion } from "../utils/assistant";
 import { LEVEL_COLOR, LEVEL_LABEL, embedUrl, formatDate, formatDuration, isVideoFile, paragraphs } from "../utils/format";
 
 const CodeRunner = lazy(() => import("../components/code/CodeRunner"));
+
+/** Kursun arama motorlarına verilen bilgisi (schema.org Course). */
+function courseJsonLd(course) {
+  const origin = window.location.origin;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: course.title,
+    description: course.summary,
+    url: `${origin}/courses/${course.id}`,
+    inLanguage: "tr-TR",
+    isAccessibleForFree: true,
+    educationalLevel: LEVEL_LABEL[course.level],
+    about: course.category,
+    ...(course.coverImage ? { image: new URL(assetUrl(course.coverImage), origin).href } : {}),
+    provider: { "@type": "EducationalOrganization", name: "Codevia", url: `${origin}/` },
+    hasCourseInstance: {
+      "@type": "CourseInstance",
+      courseMode: "Online",
+      courseWorkload: `PT${course.totalMinutes || 0}M`,
+    },
+    offers: { "@type": "Offer", category: "Free", price: 0, priceCurrency: "TRY" },
+  };
+}
 
 function LockedNotice({ access }) {
   const location = useLocation();
@@ -124,7 +149,7 @@ function FinalExamBox({ course }) {
   const best = exam.attempts.reduce((m, a) => Math.max(m, a.score), -1);
   return (
     <div className="final-box">
-      <h3>Kurs sonu testi</h3>
+      <h2>Kurs sonu testi</h2>
       <p className="muted">
         {exam.questionCount} soru{exam.durationMinutes ? `, ${exam.durationMinutes} dakika` : ""}. Geçme notu %{exam.passingScore}.
       </p>
@@ -159,6 +184,17 @@ export default function CourseDetail() {
   const [chatOpen, setChatOpen] = useState(false);
   const [seed, setSeed] = useState(null);
   const { openReels } = useReels();
+  const meta = data?.course;
+  usePageMeta(
+    meta
+      ? {
+          title: `${meta.title} kursu`,
+          description: meta.summary || meta.description,
+          image: meta.coverImage ? assetUrl(meta.coverImage) : null,
+          jsonLd: courseJsonLd(meta),
+        }
+      : { title: error?.status === 404 ? "Kurs bulunamadı" : "Kurs", noindex: Boolean(error) },
+  );
 
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error.message} onRetry={error.status === 404 ? undefined : reload} />;
@@ -299,7 +335,7 @@ export default function CourseDetail() {
             <span className="muted small">{course.progress.completed} / {course.progress.total} adım tamamlandı</span>
           </div>
         )}
-        <h3>Kurs adımları</h3>
+        <h2>Kurs adımları</h2>
         <ol className="lesson-list">
           {lessons.map((l, i) => (
             <li key={l.id}>

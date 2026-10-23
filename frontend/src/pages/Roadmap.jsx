@@ -7,8 +7,11 @@ import Cover from "../components/Cover";
 import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { formatDate } from "../utils/format";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { PAGES } from "../seo/pages";
 
 export default function Roadmap() {
+  usePageMeta(PAGES["/roadmap"]);
   const [tag, setTag] = useState("");
   const { data, error, loading, reload } = useApi("/blog", tag ? { tag } : undefined);
   const [tags, setTags] = useState([]);

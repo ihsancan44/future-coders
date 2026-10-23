@@ -4,8 +4,10 @@ import { Result } from "antd";
 import { api, apiError } from "../api/client";
 import ExamRunner from "../components/ExamRunner";
 import { ErrorState, Loading } from "../components/Status";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function FinalExam() {
+  usePageMeta({ title: "Kurs sonu testi", noindex: true });
   const courseId = Number(useParams().id);
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);

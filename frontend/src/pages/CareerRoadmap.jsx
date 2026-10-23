@@ -8,9 +8,11 @@ import { useAuth } from "../context/AuthContext";
 import { useApi } from "../hooks/useApi";
 import { careerIcon } from "../utils/careers";
 import { message } from "../utils/feedback";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 /** Seçilen alanın görsel yol haritası: aşamalar, konular ve her aşamanın projesi. */
 export default function CareerRoadmap() {
+  usePageMeta({ title: "Kariyer yol haritası", noindex: true });
   const { key } = useParams();
   const { user, setUser, isAdmin } = useAuth();
   const { data, error, loading, reload } = useApi(`/career/${key}`);

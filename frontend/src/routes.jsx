@@ -1,33 +1,37 @@
+/* eslint-disable react-refresh/only-export-components -- yönlendirme tablosu, bileşen dosyası değil */
+import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import { GuestOnly, RequireAdmin, RequireAuth } from "./components/Guards";
 import Home from "./pages/Home";
-import Courses from "./pages/Courses";
-import CourseDetail from "./pages/CourseDetail";
-import FinalExam from "./pages/FinalExam";
-import Roadmap from "./pages/Roadmap";
-import BlogPost from "./pages/BlogPost";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Placement from "./pages/Placement";
-import Profile from "./pages/Profile";
-import CareerPicker from "./pages/CareerPicker";
-import CareerRoadmap from "./pages/CareerRoadmap";
 import NotFound from "./pages/NotFound";
-import Compiler from "./pages/Compiler";
-import Dashboard from "./pages/admin/Dashboard";
-import AdminCourses from "./pages/admin/AdminCourses";
-import CourseEditor from "./pages/admin/CourseEditor";
-import AdminBlog from "./pages/admin/AdminBlog";
-import BlogEditor from "./pages/admin/BlogEditor";
-import AdminExams from "./pages/admin/AdminExams";
-import ExamEditor from "./pages/admin/ExamEditor";
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminComments from "./pages/admin/AdminComments";
-import AdminVideos from "./pages/admin/AdminVideos";
+
+// Ana sayfa dışındaki sayfalar ayrı dosyalara bölünür ve açıldıklarında yüklenir: ilk açılış hızlanır.
+const Courses = lazy(() => import("./pages/Courses"));
+const CourseDetail = lazy(() => import("./pages/CourseDetail"));
+const FinalExam = lazy(() => import("./pages/FinalExam"));
+const Roadmap = lazy(() => import("./pages/Roadmap"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Placement = lazy(() => import("./pages/Placement"));
+const Profile = lazy(() => import("./pages/Profile"));
+const CareerPicker = lazy(() => import("./pages/CareerPicker"));
+const CareerRoadmap = lazy(() => import("./pages/CareerRoadmap"));
+const Compiler = lazy(() => import("./pages/Compiler"));
+const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminCourses = lazy(() => import("./pages/admin/AdminCourses"));
+const CourseEditor = lazy(() => import("./pages/admin/CourseEditor"));
+const AdminBlog = lazy(() => import("./pages/admin/AdminBlog"));
+const BlogEditor = lazy(() => import("./pages/admin/BlogEditor"));
+const AdminExams = lazy(() => import("./pages/admin/AdminExams"));
+const ExamEditor = lazy(() => import("./pages/admin/ExamEditor"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminComments = lazy(() => import("./pages/admin/AdminComments"));
+const AdminVideos = lazy(() => import("./pages/admin/AdminVideos"));
 
 export const routes = [
   {

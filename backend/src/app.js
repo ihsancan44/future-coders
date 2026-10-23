@@ -11,6 +11,7 @@ import careerRoutes from "./routes/career.js";
 import adminRoutes from "./routes/admin/index.js";
 import codeRoutes from "./routes/code.js";
 import assistantRoutes from "./routes/assistant.js";
+import seoRoutes from "./routes/seo.js";
 import { errorHandler, notFoundHandler, rejectNullChars } from "./middleware/error.js";
 
 export function createApp() {
@@ -33,6 +34,8 @@ export function createApp() {
   app.use("/api/code", codeRoutes);
   app.use("/api/assistant", assistantRoutes);
   app.use("/api/admin", adminRoutes);
+  // robots.txt ve sitemap.xml: nginx (ve geliştirmede Vite) bu iki adresi backend'e yönlendirir.
+  app.use(seoRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
