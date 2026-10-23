@@ -29,7 +29,8 @@ Docker ile internete açmadan önce:
 3. **`CLIENT_URL`**: sitenin herkese açık adresi (örn. `https://codevia.com`). Şifre sıfırlama e-postasındaki bağlantı buradaki ilk adresi kullanır.
 4. **HTTPS**: `docker compose` sadece 8080 portunda düz HTTP sunar. Önüne HTTPS sağlayan bir ters vekil (Caddy, Traefik, Cloudflare, sunucudaki nginx) koyun ve **`TRUST_PROXY=2`** yapın; yoksa giriş denemesi sınırı tüm ziyaretçileri tek kişi sayar.
 5. **E-posta**: şifre sıfırlama için `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` ve alan adı size ait bir `MAIL_FROM` verin. SMTP yoksa canlıda e-posta gönderilmez (yerel kurulumda bağlantı sunucu loguna yazılır).
-6. **Yedek**: veritabanı `db-data`, yüklenen videolar ve görseller `uploads` adlı Docker birimlerinde durur; ikisini de düzenli yedekleyin.
+6. **Arama motorları (SEO)**: **`SITE_URL`** olarak sitenin asıl adresini verin (örn. `https://codevia.com.tr`). Site haritası (`/sitemap.xml`), `robots.txt`, sayfaların asıl adresi ve paylaşım önizlemesi bu adresi kullanır. Site yayına girince [Google Search Console](https://search.google.com/search-console)'a alan adını ekleyip `https://alanadiniz/sitemap.xml` adresini gönderin.
+7. **Yedek**: veritabanı `db-data`, yüklenen videolar ve görseller `uploads` adlı Docker birimlerinde durur; ikisini de düzenli yedekleyin.
 
 Kapsayıcılar sunucu yeniden başlayınca kendiliğinden açılır (`restart: unless-stopped`).
 
@@ -136,6 +137,7 @@ Bu kurallar zip'teki senaryo diyagramlarından çıkarıldı. Karar ağacına g�
 | GET | `/api/career/:key` | Bir alanın yol haritası |
 | GET/POST | `/api/code/languages` · `/api/code/run` | Sunucuda derlenen diller ve kodu çalıştırma (giriş gerekir) |
 | GET/POST | `/api/assistant/status` · `/api/assistant/chat` | Codevia Asistan açık mı, soru sor (giriş gerekir) |
+| GET | `/robots.txt` · `/sitemap.xml` | Arama motorları için tarama kuralları ve yayındaki kurs/yazılardan güncel site haritası |
 | * | `/api/admin/...` | Kurs, ders, blog, sınav, soru, kullanıcı, yorum, istatistik ve görsel yükleme (sadece admin) |
 
 ## Ortam değişkenleri

@@ -5,8 +5,11 @@ import dayjs from "dayjs";
 import AuthCard from "../components/AuthCard";
 import { useAuth } from "../context/AuthContext";
 import { applyApiErrors } from "../utils/forms";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { PAGES } from "../seo/pages";
 
 export default function Register() {
+  usePageMeta(PAGES["/register"]);
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form] = Form.useForm();

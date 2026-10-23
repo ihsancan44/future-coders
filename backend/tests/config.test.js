@@ -31,4 +31,9 @@ describe("canlı ortam ayarları", () => {
     expect((await load({ TRUST_PROXY: "10.0.0.0/8" })).trustProxy).toBe("10.0.0.0/8");
     expect((await load({ TRUST_PROXY: "" })).trustProxy).toBe(1);
   });
+
+  it("SITE_URL verilmezse site haritası CLIENT_URL'deki ilk adresi kullanır", async () => {
+    expect((await load({ CLIENT_URL: "https://codevia.com, https://www.codevia.com", SITE_URL: "" })).siteUrl).toBe("https://codevia.com");
+    expect((await load({ CLIENT_URL: "http://localhost:5173", SITE_URL: "https://codevia.com.tr/" })).siteUrl).toBe("https://codevia.com.tr");
+  });
 });

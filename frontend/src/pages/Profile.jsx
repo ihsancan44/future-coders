@@ -9,8 +9,10 @@ import { useAuth } from "../context/AuthContext";
 import { useApi } from "../hooks/useApi";
 import { LEVEL_COLOR, LEVEL_DESC, LEVEL_LABEL, dayPart, formatDate } from "../utils/format";
 import { applyApiErrors } from "../utils/forms";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function Profile() {
+  usePageMeta({ title: "Profilim", noindex: true });
   const { user, setUser, isAdmin } = useAuth();
   const attempts = useApi(isAdmin ? null : "/exams/my-attempts");
   const courses = useApi(isAdmin || !user.level ? null : "/courses", { mine: "true" });

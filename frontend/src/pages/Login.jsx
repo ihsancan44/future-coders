@@ -4,8 +4,11 @@ import { Alert, Button, Checkbox, Form, Input } from "antd";
 import AuthCard from "../components/AuthCard";
 import { useAuth } from "../context/AuthContext";
 import { applyApiErrors } from "../utils/forms";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { PAGES } from "../seo/pages";
 
 export default function Login() {
+  usePageMeta(PAGES["/login"]);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

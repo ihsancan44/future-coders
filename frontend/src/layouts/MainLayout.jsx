@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet, useLocation, useNavigationType } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import ReelsDock from "../components/reels/ReelsDock";
 import { ReelsProvider } from "../context/ReelsContext";
+import { Loading } from "../components/Status";
 
 export default function MainLayout() {
   const location = useLocation();
@@ -19,7 +20,9 @@ export default function MainLayout() {
       <div className="app">
         <Navbar />
         <main className="app__main">
-          <Outlet />
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </main>
         <Footer />
         <ReelsDock />

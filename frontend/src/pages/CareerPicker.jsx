@@ -9,9 +9,11 @@ import { useAuth } from "../context/AuthContext";
 import { useApi } from "../hooks/useApi";
 import { careerIcon } from "../utils/careers";
 import { message } from "../utils/feedback";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 /** Final testini geçen öğrenci burada yazılım alanını seçer. */
 export default function CareerPicker() {
+  usePageMeta({ title: "Alanını seç", noindex: true });
   const { setUser, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { data, error, loading, reload } = useApi("/career");

@@ -27,6 +27,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET verilmeli (openssl rand -hex 32)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      SITE_URL: ${SITE_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-1}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@futurecoders.dev}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD verilmeli}
@@ -42,7 +43,10 @@ services:
       - uploads:/app/uploads
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_SITE_URL: ${SITE_URL:-}
     restart: unless-stopped
     depends_on:
       - backend

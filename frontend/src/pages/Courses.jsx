@@ -6,8 +6,11 @@ import CourseCard from "../components/CourseCard";
 import { ErrorState, Loading } from "../components/Status";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { PAGES } from "../seo/pages";
 
 export default function Courses() {
+  usePageMeta(PAGES["/courses"]);
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
@@ -38,6 +41,7 @@ export default function Courses() {
     <>
       <PageBanner title="Kurslar" />
       <section className="section">
+        <h2 className="sr-only">Kurs listesi</h2>
         <div className="filters">
           <Input.Search
             placeholder="Kurs ara"

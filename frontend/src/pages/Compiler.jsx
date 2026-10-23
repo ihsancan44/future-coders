@@ -1,6 +1,8 @@
 import { lazy, Suspense, useState } from "react";
 import { Loading } from "../components/Status";
 import { DEFAULT_LANGUAGE, languageByKey } from "../utils/languages";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { PAGES } from "../seo/pages";
 
 const CodeRunner = lazy(() => import("../components/code/CodeRunner"));
 const KEY = "codevia-compiler-language";
@@ -15,6 +17,7 @@ function savedLanguage() {
 }
 
 export default function Compiler() {
+  usePageMeta(PAGES["/compiler"]);
   const [initial] = useState(savedLanguage);
   const remember = (key) => {
     try {

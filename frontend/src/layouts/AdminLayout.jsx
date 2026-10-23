@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Layout, Menu } from "antd";
 import { BarChart3, BookOpen, ClipboardList, FileText, Home, LogOut, MessageSquare, Users, Video } from "lucide-react";
 import logo from "../assets/logo.svg";
 import { useAuth } from "../context/AuthContext";
+import { Loading } from "../components/Status";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 const items = [
   { key: "/admin", icon: <BarChart3 size={16} />, label: "İstatistikler" },
@@ -19,6 +21,7 @@ const items = [
 ];
 
 export default function AdminLayout() {
+  usePageMeta({ title: "Yönetim paneli", noindex: true });
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -50,7 +53,9 @@ export default function AdminLayout() {
           <span>Merhaba, {user.firstName}</span>
         </Layout.Header>
         <Layout.Content className="admin__content">
-          <Outlet />
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </Layout.Content>
       </Layout>
     </Layout>

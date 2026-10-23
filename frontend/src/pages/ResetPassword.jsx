@@ -4,8 +4,10 @@ import { Alert, Button, Form, Input } from "antd";
 import AuthCard from "../components/AuthCard";
 import { api } from "../api/client";
 import { applyApiErrors } from "../utils/forms";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function ResetPassword() {
+  usePageMeta({ title: "Yeni şifre belirle", noindex: true });
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [form] = Form.useForm();

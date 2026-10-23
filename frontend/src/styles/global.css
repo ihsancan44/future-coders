@@ -548,7 +548,7 @@ img {
   color: var(--accent);
 }
 
-.step h3 {
+.step h2 {
   font-size: 19px;
   color: var(--brand);
 }
@@ -855,7 +855,7 @@ img {
   box-shadow: var(--shadow);
 }
 
-.course-page__side h3 {
+.course-page__side h2 {
   font-size: 17px;
 }
 
