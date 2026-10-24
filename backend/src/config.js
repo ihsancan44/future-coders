@@ -33,7 +33,8 @@ function trustProxy() {
   return v; // IP / alt ağ listesi
 }
 
-const RUNNERS = ["judge0", "wandbox", "paiza"];
+// Varsayılan sıra 2026-10-24 ölçümüne göre: paiza.io en hızlısı (~2 sn), Judge0 sonra, Wandbox en yavaşı.
+const RUNNERS = ["paiza", "judge0", "wandbox"];
 const url = (v, fallback) => (String(v ?? "").trim() || fallback).replace(/\/+$/, "");
 
 /**

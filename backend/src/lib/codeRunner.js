@@ -1,4 +1,4 @@
-// Sunucu dillerini ücretsiz derleme servislerinde çalıştırır: Judge0, Wandbox ve paiza.io.
+// Sunucu dillerini ücretsiz derleme servislerinde çalıştırır: paiza.io, Judge0 ve Wandbox.
 // Servisler config.codeRunners.order sırasıyla denenir. Bir servis çökerse, zaman aşımına uğrarsa ya da kendi
 // kurulumu bozuksa (öğrencinin kodundaki hata değil) sıradaki servise geçilir ve bozuk servis bir süre atlanır.
 import { config } from "../config.js";
@@ -165,6 +165,8 @@ const judge0 = {
     }
     const statusId = r.status?.id;
     if (!statusId || statusId === 13 || statusId === 14) throw new ServiceError(`Judge0: ${r.status?.description || "bilinmeyen durum"}`);
+    // Paylaşımlı sunucu yoğunken derleyicinin kendisi süreye takılabilir; bu öğrencinin hatası değildir.
+    if (statusId === 6 && /Compilation time limit exceeded/i.test(unb64(r.compile_output))) throw new ServiceError("Judge0: derleme süresi doldu");
     let stderr = unb64(r.stderr);
     if (statusId === 5) stderr += "Kod zaman sınırında bitmedi ve durduruldu. Sonsuz döngü olabilir mi?\n";
     const exitCode = r.exit_code ?? (statusId === 3 ? 0 : statusId === 6 ? 1 : null);
@@ -216,7 +218,7 @@ const paiza = {
 /* ---------------------------------------------------------------- Ortak */
 
 /** Teşhis betiği (scripts/check-compilers.js) her servisi ayrı ayrı denesin diye dışa açıktır. */
-export const SERVICES = { judge0, wandbox, paiza };
+export const SERVICES = { paiza, judge0, wandbox };
 const timeouts = { judge0: 25_000, wandbox: 50_000, paiza: 30_000 };
 /** "servis" ya da "servis:dil" → bu zamana kadar sona bırakılır. */
 const down = new Map();

@@ -114,6 +114,17 @@ describe("derleyici", () => {
   ];
   const b64 = (s) => Buffer.from(s).toString("base64");
   const { judge0, wandbox, paiza } = config.codeRunners;
+  const defaultOrder = config.codeRunners.order;
+  beforeEach(() => {
+    config.codeRunners.order = ["judge0", "wandbox", "paiza"];
+  });
+  afterEach(() => {
+    config.codeRunners.order = defaultOrder;
+  });
+
+  it("varsayılan sıra en hızlı servisle başlar", () => {
+    expect(defaultOrder).toEqual(["paiza", "judge0", "wandbox"]);
+  });
 
   /** Servisleri taklit eder; her servisin cevabı test içinde değiştirilebilir. */
   function services(over = {}) {
@@ -186,6 +197,13 @@ describe("derleyici", () => {
     expect(calls).toEqual(["paizaCreate", "paizaDetails"]);
   });
 
+  it("Judge0'da derleyicinin süreye takılması servis hatası sayılır", async () => {
+    services({
+      judge0Run: () => ({ ok: true, json: async () => ({ status: { id: 6 }, compile_output: b64("Compilation time limit exceeded.") }) }),
+    });
+    expect((await run({ language: "c", code: "int main(){}" })).body.compiler).toBe("paiza.io · C");
+  });
+
   it("öğrencinin kodundaki hata başka serviste tekrar denenmez", async () => {
     const calls = services({
       judge0Run: () => ({ ok: true, json: async () => ({ status: { id: 6, description: "Compilation Error" }, compile_output: b64("hata: ; eksik") }) }),
@@ -226,15 +244,12 @@ describe("derleyici", () => {
   });
 
   it("CODE_RUNNERS=off sunucu dillerini kapatır", async () => {
-    const saved = config.codeRunners.order;
     config.codeRunners.order = [];
-    try {
+    {
       expect((await api().get("/api/code/languages")).body).toEqual({ enabled: false, server: [] });
       const res = await run({ language: "c", code: "int main(){}" });
       expect(res.status).toBe(503);
       expect(res.body.error).toMatch(/kapalı/);
-    } finally {
-      config.codeRunners.order = saved;
     }
   });
 });

@@ -2,9 +2,12 @@
 // Kullanım: npm run check:compilers   (internet gerekir; birkaç dakika sürer)
 //           npm run check:compilers -- --json   (sonuçları JSON olarak yazar)
 import "dotenv/config";
-import { LANGUAGES as SERVER_LANGS } from "../src/data/languages.js";
-import { SERVICES } from "../src/lib/codeRunner.js";
-import { LANGUAGES as STARTERS } from "../../frontend/src/utils/languages.js";
+
+// Ayar dosyası oturum anahtarı ister; bu betik oturum açmadığı için .env yoksa geçici bir değer yeterli.
+process.env.JWT_SECRET ||= "check-compilers-gecici-anahtar";
+const { LANGUAGES: SERVER_LANGS } = await import("../src/data/languages.js");
+const { SERVICES } = await import("../src/lib/codeRunner.js");
+const { LANGUAGES: STARTERS } = await import("../../frontend/src/utils/languages.js");
 
 const EXPECT = /Merhaba,? Codevia!?/;
 const extra = [
