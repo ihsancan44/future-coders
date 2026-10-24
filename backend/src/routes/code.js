@@ -10,7 +10,7 @@ import { validate } from "../middleware/validate.js";
 
 const router = Router();
 
-// Derleme servisi ücretsiz ve herkesle paylaşılıyor: öğrenci başına dakikada 20 çalıştırma yeterli.
+// Derleme servisleri ücretsiz ve herkesle paylaşılıyor: öğrenci başına dakikada 20 çalıştırma yeterli.
 const runLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: config.isTest ? 10_000 : 20,
@@ -24,7 +24,7 @@ const runLimiter = rateLimit({
 router.get(
   "/languages",
   asyncHandler(async (_req, res) => {
-    res.json({ enabled: Boolean(config.codeRunnerUrl), server: await availableServerLanguages() });
+    res.json({ enabled: config.codeRunners.order.length > 0, server: await availableServerLanguages() });
   }),
 );
 
