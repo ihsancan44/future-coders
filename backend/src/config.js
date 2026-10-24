@@ -33,10 +33,24 @@ function trustProxy() {
   return v; // IP / alt ağ listesi
 }
 
-function codeRunnerUrl() {
-  const v = (process.env.CODE_RUNNER_URL ?? "").trim();
-  if (v === "off") return "";
-  return (v || "https://wandbox.org").replace(/\/+$/, "");
+// Varsayılan sıra 2026-10-24 ölçümüne göre: paiza.io en hızlısı (~2 sn), Judge0 sonra, Wandbox en yavaşı.
+const RUNNERS = ["paiza", "judge0", "wandbox"];
+const url = (v, fallback) => (String(v ?? "").trim() || fallback).replace(/\/+$/, "");
+
+/**
+ * Derleme servisleri, denenme sırasıyla. Biri çökerse ya da o dili çalıştıramazsa sıradakine geçilir.
+ * CODE_RUNNERS=off (ya da eski CODE_RUNNER_URL=off) sunucu dillerini tamamen kapatır.
+ */
+function codeRunners() {
+  const order = (process.env.CODE_RUNNERS ?? "").trim().toLowerCase();
+  if (order === "off" || (process.env.CODE_RUNNER_URL ?? "").trim() === "off") return { order: [] };
+  const names = order ? order.split(",").map((s) => s.trim()).filter((s) => RUNNERS.includes(s)) : RUNNERS;
+  return {
+    order: [...new Set(names)],
+    judge0: { url: url(process.env.JUDGE0_URL, "https://ce.judge0.com"), key: process.env.JUDGE0_KEY || "" },
+    wandbox: { url: url(process.env.CODE_RUNNER_URL, "https://wandbox.org") },
+    paiza: { url: url(process.env.PAIZA_URL, "https://api.paiza.io"), key: process.env.PAIZA_KEY || "guest" },
+  };
 }
 
 const clientUrls = (process.env.CLIENT_URL || "http://localhost:5173").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);
@@ -62,8 +76,8 @@ export const config = {
     pass: process.env.SMTP_PASS || "",
   },
   mailFrom: process.env.MAIL_FROM || "Codevia <no-reply@futurecoders.dev>",
-  /** Derleyicideki sunucu dilleri bu Wandbox uyumlu servise gönderilir. CODE_RUNNER_URL=off kapatır. */
-  codeRunnerUrl: codeRunnerUrl(),
+  /** Derleyicideki sunucu dillerinin gönderildiği servisler (Judge0, Wandbox, paiza.io). */
+  codeRunners: codeRunners(),
   /** Codevia Asistan (chatbot). Anahtar yoksa asistan kapalıdır, site normal çalışır. */
   assistant: {
     apiKey: process.env.ANTHROPIC_API_KEY || "",

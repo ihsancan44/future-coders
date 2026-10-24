@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { api, createCourse, createUser, resetDb } from "./helpers.js";
 import { config } from "../src/config.js";
-import { pickCompiler, resetCompilerCache } from "../src/lib/codeRunner.js";
+import { pickCompiler, pickJudge0, resetCompilerCache } from "../src/lib/codeRunner.js";
 
 vi.mock("../src/lib/assistant.js", () => ({
   assistantEnabled: vi.fn(() => false),
@@ -96,53 +96,161 @@ describe("konu paneli (özet, pratik, kısa videolar)", () => {
 });
 
 describe("derleyici", () => {
-  const list = [
+  const wandboxList = [
     { language: "C++", name: "gcc-head", version: "16.0.0" },
     { language: "C++", name: "gcc-13.2.0", version: "13.2.0" },
     { language: "C++", name: "gcc-9.5.0", version: "9.5.0" },
     { language: "Java", name: "openjdk-jdk-22+36", version: "22+36" },
+    { language: "Go", name: "go-1.23.2", version: "1.23.2" },
+    { language: "Go", name: "go-1.16.3", version: "1.16.3" },
+    { language: "Julia", name: "julia-1.0.5", version: "1.0.5" },
   ];
-
-  it("kararlı en yeni derleyiciyi seçer", () => {
-    expect(pickCompiler(list, "C++")).toBe("gcc-13.2.0");
-    expect(pickCompiler(list, "Java")).toBe("openjdk-jdk-22+36");
-    expect(pickCompiler(list, "Rust")).toBeNull();
+  const judge0List = [
+    { id: 48, name: "C (GCC 7.4.0)" },
+    { id: 50, name: "C (GCC 9.2.0)" },
+    { id: 49, name: "C (GCC 8.3.0)" },
+    { id: 54, name: "C++ (GCC 9.2.0)" },
+    { id: 62, name: "Java (OpenJDK 13.0.1)" },
+  ];
+  const b64 = (s) => Buffer.from(s).toString("base64");
+  const { judge0, wandbox, paiza } = config.codeRunners;
+  const defaultOrder = config.codeRunners.order;
+  beforeEach(() => {
+    config.codeRunners.order = ["judge0", "wandbox", "paiza"];
+  });
+  afterEach(() => {
+    config.codeRunners.order = defaultOrder;
   });
 
-  it("kodu servise gönderir ve çıktıyı döndürür; giriş ister", async () => {
-    const fetchMock = vi.fn(async (url, init) => ({
-      ok: true,
-      json: async () =>
-        url.endsWith("/list.json")
-          ? list
-          : { status: "0", program_output: `çıktı:${JSON.parse(init.body).compiler}`, program_error: "", compiler_message: "" },
-    }));
+  it("varsayılan sıra en hızlı servisle başlar", () => {
+    expect(defaultOrder).toEqual(["paiza", "judge0", "wandbox"]);
+  });
+
+  /** Servisleri taklit eder; her servisin cevabı test içinde değiştirilebilir. */
+  function services(over = {}) {
+    const calls = [];
+    const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+    const handlers = {
+      judge0List: () => reply(judge0List),
+      judge0Run: (body) => reply({ status: { id: 3, description: "Accepted" }, stdout: b64(`j0:${body.language_id}:${Buffer.from(body.source_code, "base64").toString()}`), exit_code: 0 }),
+      wandboxList: () => reply(wandboxList),
+      wandboxRun: (body) => reply({ status: "0", program_output: `wb:${body.compiler}:${body.code}` }),
+      paizaCreate: () => reply({ id: "p1", status: "completed" }),
+      paizaDetails: () => reply({ status: "completed", stdout: "pz", exit_code: "0", build_result: "success" }),
+      ...over,
+    };
+    const fetchMock = vi.fn(async (url, init) => {
+      const body = init?.body ? JSON.parse(init.body) : null;
+      const route = url === `${judge0.url}/languages` ? "judge0List"
+        : url.startsWith(`${judge0.url}/submissions`) ? "judge0Run"
+        : url === `${wandbox.url}/api/list.json` ? "wandboxList"
+        : url === `${wandbox.url}/api/compile.json` ? "wandboxRun"
+        : url === `${paiza.url}/runners/create` ? "paizaCreate"
+        : url.startsWith(`${paiza.url}/runners/get_details`) ? "paizaDetails"
+        : null;
+      calls.push(route);
+      if (!route) throw new Error(`beklenmeyen adres ${url}`);
+      return handlers[route](body);
+    });
     vi.stubGlobal("fetch", fetchMock);
-    const body = { language: "cpp", code: "int main(){}" };
-    expect((await api().post("/api/code/run").send(body)).status).toBe(401);
-
+    return calls;
+  }
+  const run = async (body) => {
     const { auth } = await createUser({ level: "ALPHA" });
-    const res = await api().post("/api/code/run").set(auth).send(body);
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ stdout: "çıktı:gcc-13.2.0", exitCode: 0, compiler: "gcc-13.2.0" });
-    expect(fetchMock.mock.calls[1][0]).toBe(`${config.codeRunnerUrl}/api/compile.json`);
+    return api().post("/api/code/run").set(auth).send(body);
+  };
 
-    const langs = await api().get("/api/code/languages");
-    expect(langs.body.server).toEqual(["cpp", "java"]);
-
-    expect((await api().post("/api/code/run").set(auth).send({ language: "python", code: "print(1)" })).status).toBe(400);
-    expect((await api().post("/api/code/run").set(auth).send({ language: "cobol", code: "x" })).status).toBe(400);
-    const missing = await api().post("/api/code/run").set(auth).send({ language: "rust", code: "fn main(){}" });
-    expect(missing.status).toBe(503);
+  it("Wandbox'ta denenmiş sürümü, yoksa kararlı en yeni sürümü seçer; Judge0'da en yeni sürümü", () => {
+    expect(pickCompiler(wandboxList, "C++")).toBe("gcc-13.2.0");
+    expect(pickCompiler(wandboxList, { language: "Go", prefer: ["go-1.16", "go-1.15"] })).toBe("go-1.16.3");
+    expect(pickCompiler(wandboxList, { language: "Go", prefer: ["go-1.12"] })).toBe("go-1.23.2");
+    expect(pickCompiler(wandboxList, "Rust")).toBeNull();
+    expect(pickJudge0(judge0List, "C (GCC")).toBe(50);
+    expect(pickJudge0(judge0List, "Rust (")).toBeNull();
   });
 
-  it("servise ulaşılamazsa anlaşılır bir hata döner", async () => {
+  it("kodu ilk servise gönderir ve çıktıyı döndürür; giriş ister", async () => {
+    services();
+    const body = { language: "cpp", code: "int main(){}", stdin: "ğ" };
+    expect((await api().post("/api/code/run").send(body)).status).toBe(401);
+    const res = await run(body);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ stdout: "j0:54:int main(){}", exitCode: 0, compiler: "Judge0 · C++ (GCC 9.2.0)" });
+
+    expect((await run({ language: "python", code: "print(1)" })).status).toBe(400);
+    expect((await run({ language: "cobol", code: "x" })).status).toBe(400);
+  });
+
+  it("servis çökerse ya da kendi kurulumu bozuksa sıradakine geçer; bozuk servis sona bırakılır", async () => {
+    const calls = services({
+      judge0Run: () => ({ ok: false, status: 503, json: async () => ({}) }),
+      wandboxRun: () => ({ ok: true, json: async () => ({ status: "1", compiler_message: "ERROR (catatonit:2): failed to exec pid1: No such file or directory\n" }) }),
+    });
+    const res = await run({ language: "cpp", code: "int main(){}" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ stdout: "pz", compiler: "paiza.io · C++" });
+    expect(calls).toEqual(["judge0List", "judge0Run", "wandboxList", "wandboxRun", "paizaCreate", "paizaDetails"]);
+
+    // Sonraki çalıştırmada önce çalışan servis denenir.
+    calls.length = 0;
+    expect((await run({ language: "cpp", code: "int main(){}" })).body.compiler).toBe("paiza.io · C++");
+    expect(calls).toEqual(["paizaCreate", "paizaDetails"]);
+  });
+
+  it("Judge0'da derleyicinin süreye takılması servis hatası sayılır", async () => {
+    services({
+      judge0Run: () => ({ ok: true, json: async () => ({ status: { id: 6 }, compile_output: b64("Compilation time limit exceeded.") }) }),
+    });
+    expect((await run({ language: "c", code: "int main(){}" })).body.compiler).toBe("paiza.io · C");
+  });
+
+  it("öğrencinin kodundaki hata başka serviste tekrar denenmez", async () => {
+    const calls = services({
+      judge0Run: () => ({ ok: true, json: async () => ({ status: { id: 6, description: "Compilation Error" }, compile_output: b64("hata: ; eksik") }) }),
+    });
+    const res = await run({ language: "c", code: "int main(){" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ compileOutput: "hata: ; eksik", exitCode: 1 });
+    expect(calls).toEqual(["judge0List", "judge0Run"]);
+  });
+
+  it("Java'da sınıf adı serbesttir; Wandbox'ta Swift gibi bozuk diller hiç denenmez", async () => {
+    services({ judge0List: () => ({ ok: false, status: 500, json: async () => ({}) }) });
+    const res = await run({ language: "java", code: "public class Merhaba { public static void main(String[] a) {} }" });
+    expect(res.body.compiler).toBe("Wandbox · openjdk-jdk-22+36");
+    expect(res.body.stdout).toContain("class prog { public static void main(String[] args) throws Exception { Merhaba.main(args); } }");
+    expect(res.body.stdout).not.toContain("public class Merhaba");
+
+    const calls = services({ judge0Run: () => ({ ok: false, status: 500, json: async () => ({}) }) });
+    expect((await run({ language: "swift", code: "print(1)" })).body.compiler).toBe("paiza.io · Swift");
+    expect(calls).not.toContain("wandboxRun");
+  });
+
+  it("dil listesi servislerin birleşimidir", async () => {
+    services();
+    const langs = (await api().get("/api/code/languages")).body;
+    expect(langs.enabled).toBe(true);
+    // Judge0: c, cpp, java; Wandbox: cpp, java, go, julia; paiza: sabit liste (OCaml, Lua, Julia, Erlang, Pascal yok).
+    expect(langs.server).toEqual(expect.arrayContaining(["c", "cpp", "java", "go", "julia", "swift", "elixir"]));
+    expect(langs.server).not.toContain("ocaml");
+    expect(langs.server).not.toContain("erlang");
+  });
+
+  it("hiçbir servise ulaşılamazsa anlaşılır bir hata döner", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("ağ yok"); }));
-    const { auth } = await createUser({ level: "ALPHA" });
-    const res = await api().post("/api/code/run").set(auth).send({ language: "c", code: "int main(){}" });
+    const res = await run({ language: "c", code: "int main(){}" });
     expect(res.status).toBe(503);
     expect(res.body.error).toMatch(/ulaşılamadı/);
-    expect((await api().get("/api/code/languages")).body.server).toBeNull();
+  });
+
+  it("CODE_RUNNERS=off sunucu dillerini kapatır", async () => {
+    config.codeRunners.order = [];
+    {
+      expect((await api().get("/api/code/languages")).body).toEqual({ enabled: false, server: [] });
+      const res = await run({ language: "c", code: "int main(){}" });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toMatch(/kapalı/);
+    }
   });
 });
 

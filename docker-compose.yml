@@ -38,7 +38,11 @@ services:
       MAIL_FROM: ${MAIL_FROM:-Codevia <no-reply@futurecoders.dev>}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}
-      CODE_RUNNER_URL: ${CODE_RUNNER_URL:-https://wandbox.org}
+      CODE_RUNNERS: ${CODE_RUNNERS:-paiza,judge0,wandbox}
+      JUDGE0_URL: ${JUDGE0_URL:-}
+      JUDGE0_KEY: ${JUDGE0_KEY:-}
+      CODE_RUNNER_URL: ${CODE_RUNNER_URL:-}
+      PAIZA_KEY: ${PAIZA_KEY:-}
     volumes:
       - uploads:/app/uploads
 

@@ -10,9 +10,10 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
-    "lint": "eslint src tests prisma e2e",
+    "lint": "eslint src tests prisma e2e scripts",
     "test:e2e": "node e2e/scenarios.js",
-    "test:e2e:edge": "node e2e/edge-cases.js"
+    "test:e2e:edge": "node e2e/edge-cases.js",
+    "check:compilers": "node scripts/check-compilers.js"
   },
   "license": "UNLICENSED",
   "dependencies": {

@@ -18,7 +18,7 @@ export const LANGUAGES = [
   { key: "c", label: "C", runtime: "server", editor: "cpp", starter: `#include <stdio.h>\n\nint main(void) {\n    printf("${hello}\\n");\n    return 0;\n}\n` },
   { key: "cpp", label: "C++", runtime: "server", editor: "cpp", starter: `#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "${hello}" << endl;\n    return 0;\n}\n` },
   { key: "csharp", label: "C#", runtime: "server", editor: "csharp", starter: `using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("${hello}");\n    }\n}\n` },
-  { key: "java", label: "Java", runtime: "server", editor: "java", starter: `// Derleme servisinde dosyanın adı prog.java olduğu için sınıf adı "prog" olmalı.\npublic class prog {\n    public static void main(String[] args) {\n        System.out.println("${hello}");\n    }\n}\n` },
+  { key: "java", label: "Java", runtime: "server", editor: "java", starter: `public class Main {\n    public static void main(String[] args) {\n        System.out.println("${hello}");\n    }\n}\n` },
   { key: "go", label: "Go", runtime: "server", editor: "go", starter: `package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("${hello}")\n}\n` },
   { key: "rust", label: "Rust", runtime: "server", editor: "rust", starter: `fn main() {\n    println!("${hello}");\n}\n` },
   { key: "php", label: "PHP", runtime: "server", editor: "php", starter: `<?php\n$isim = "Codevia";\necho "Merhaba $isim!\\n";\n` },
